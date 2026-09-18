@@ -27,9 +27,12 @@ out/
 build
 dist
 
-# Foundry
+# Foundry (legacy)
 packages/contracts/cache
 packages/contracts/out
+
+# Compact managed outputs / ZK keys (regenerate via compact)
+packages/poker-pool/src/managed
 
 # Prisma
 packages/db/prisma/*.db
