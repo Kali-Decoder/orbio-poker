@@ -7,6 +7,7 @@ import express from 'express';
 import { authRouter } from './auth.js';
 import { connectMongo } from './db.js';
 import { hydrateGamesFromDb } from './game-store.js';
+import { getLeaderboard } from './leaderboard.js';
 import { gamesRouter } from './routes.js';
 import { createSocketServer } from './socket.js';
 
@@ -35,6 +36,18 @@ async function main() {
 
   app.use('/auth', authRouter);
   app.use('/games', gamesRouter);
+
+  app.get('/leaderboard', async (req, res) => {
+    try {
+      const limit = Number(req.query.limit ?? 50);
+      const entries = await getLeaderboard(
+        Number.isFinite(limit) ? limit : 50
+      );
+      res.json({ entries });
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
 
   const server = http.createServer(app);
   createSocketServer(server, CORS_ORIGIN);

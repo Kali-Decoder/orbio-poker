@@ -54,6 +54,16 @@ export type PublicGameView = {
   isMyTurn: boolean;
 };
 
+export type LeaderboardEntry = {
+  rank: number;
+  sessionId: string;
+  nickname: string;
+  chips: number;
+  wins: number;
+  potsWon: number;
+  gamesPlayed: number;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
     ...init,
@@ -96,4 +106,8 @@ export const api = {
       method: 'POST',
       body: '{}',
     }),
+  leaderboard: (limit = 50) =>
+    request<{ entries: LeaderboardEntry[] }>(
+      `/leaderboard?limit=${encodeURIComponent(String(limit))}`
+    ),
 };
