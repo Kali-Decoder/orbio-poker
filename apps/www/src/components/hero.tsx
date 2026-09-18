@@ -15,40 +15,54 @@ import {
 } from 'framer-motion';
 
 import { Button } from '~/components/ui/button';
-import { cn } from '~/lib/utils';
 
 const spring = { stiffness: 80, damping: 22, mass: 0.6 };
-const flipSpring = { type: 'spring' as const, stiffness: 160, damping: 18, mass: 0.7 };
+const flipSpring = {
+  type: 'spring' as const,
+  stiffness: 160,
+  damping: 18,
+  mass: 0.7,
+};
 
 const HERO_CARDS = [
   {
     front: '/cards/HEART-1.svg',
     label: 'Ace of hearts',
-    className: 'absolute left-[8%] top-[18%] z-[1] h-[68%] w-[38%]',
-    rotate: -14,
+    rotate: -12,
     delay: 0.05,
   },
   {
     front: '/cards/SPADE-13.svg',
     label: 'King of spades',
-    className:
-      'absolute left-1/2 top-[6%] z-[2] h-[78%] w-[42%] -translate-x-1/2',
     rotate: 0,
     delay: 0.15,
   },
   {
     front: '/cards/DIAMOND-12.svg',
     label: 'Queen of diamonds',
-    className: 'absolute right-[8%] top-[18%] z-[1] h-[68%] w-[38%]',
-    rotate: 14,
+    rotate: 12,
     delay: 0.25,
   },
 ] as const;
 
+function CardBack() {
+  return (
+    <div className='absolute inset-0 overflow-hidden rounded-xl bg-black shadow-[0_24px_40px_rgba(15,15,15,0.18)]'>
+      <Image
+        src='/cards/MIDNIGHT-BACK.png'
+        alt=''
+        fill
+        priority
+        className='pointer-events-none select-none object-cover'
+        sizes='(max-width: 768px) 30vw, 200px'
+      />
+    </div>
+  );
+}
+
 function FloatingCard({
   frontSrc,
   label,
-  className,
   rotate,
   x,
   y,
@@ -57,7 +71,6 @@ function FloatingCard({
 }: {
   frontSrc: string;
   label: string;
-  className?: string;
   rotate: number;
   x: MotionValue<number>;
   y: MotionValue<number>;
@@ -68,9 +81,9 @@ function FloatingCard({
 
   return (
     <motion.div
-      className={cn('cursor-pointer', className)}
-      style={{ x, y, rotate, perspective: 1200 }}
-      initial={{ opacity: 0, y: 36, scale: 0.94 }}
+      className='relative w-[min(28vw,9.75rem)] shrink-0 cursor-pointer sm:w-[10.75rem] md:w-[11.5rem]'
+      style={{ x, y, zIndex: 1, perspective: 1200 }}
+      initial={{ opacity: 0, y: 24, scale: 0.94 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{
         type: 'spring',
@@ -84,13 +97,13 @@ function FloatingCard({
         aria-label={flipped ? `Hide ${label}` : `Reveal ${label}`}
         aria-pressed={flipped}
         onClick={() => setFlipped((v) => !v)}
-        whileHover={{ scale: 1.03 }}
+        whileHover={{ scale: 1.04, y: -4 }}
         whileTap={{ scale: 0.98 }}
-        className='relative h-full w-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8]'
-        style={{ transformStyle: 'preserve-3d' }}
+        className='relative aspect-[63/88] w-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F7F8]'
+        style={{ transformStyle: 'preserve-3d', rotate }}
       >
         <motion.div
-          animate={reduceMotion ? undefined : { y: [0, -10, 0] }}
+          animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
           transition={{
             duration: 4.2,
             repeat: Infinity,
@@ -104,27 +117,16 @@ function FloatingCard({
             className='relative h-full w-full'
             style={{ transformStyle: 'preserve-3d' }}
             animate={{ rotateY: flipped ? 180 : 0 }}
-            transition={
-              reduceMotion
-                ? { duration: 0 }
-                : flipSpring
-            }
+            transition={reduceMotion ? { duration: 0 } : flipSpring}
           >
             <div
               className='absolute inset-0'
               style={{ backfaceVisibility: 'hidden' }}
             >
-              <Image
-                src='/cards/BACK.svg'
-                alt=''
-                fill
-                priority
-                className='pointer-events-none select-none rounded-xl object-contain drop-shadow-[0_24px_40px_rgba(15,15,15,0.12)]'
-                sizes='(max-width: 768px) 40vw, 220px'
-              />
+              <CardBack />
             </div>
             <div
-              className='absolute inset-0'
+              className='absolute inset-0 overflow-hidden rounded-xl'
               style={{
                 backfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
@@ -134,8 +136,8 @@ function FloatingCard({
                 src={frontSrc}
                 alt={label}
                 fill
-                className='pointer-events-none select-none rounded-xl object-contain drop-shadow-[0_24px_40px_rgba(15,15,15,0.12)]'
-                sizes='(max-width: 768px) 40vw, 220px'
+                className='pointer-events-none select-none object-contain drop-shadow-[0_24px_40px_rgba(15,15,15,0.12)]'
+                sizes='(max-width: 768px) 30vw, 200px'
               />
             </div>
           </motion.div>
@@ -156,12 +158,12 @@ export const Hero = () => {
 
   const titleX = useTransform(smoothX, (v) => v * 0.18);
   const titleY = useTransform(smoothY, (v) => v * 0.12);
-  const leftX = useTransform(smoothX, (v) => v * -0.55);
-  const leftY = useTransform(smoothY, (v) => v * -0.35);
-  const midX = useTransform(smoothX, (v) => v * 0.15);
-  const midY = useTransform(smoothY, (v) => v * -0.55);
-  const rightX = useTransform(smoothX, (v) => v * 0.55);
-  const rightY = useTransform(smoothY, (v) => v * -0.35);
+  const leftX = useTransform(smoothX, (v) => v * -0.45);
+  const leftY = useTransform(smoothY, (v) => v * -0.25);
+  const midX = useTransform(smoothX, (v) => v * 0.1);
+  const midY = useTransform(smoothY, (v) => v * -0.4);
+  const rightX = useTransform(smoothX, (v) => v * 0.45);
+  const rightY = useTransform(smoothY, (v) => v * -0.25);
 
   const cardMotion = [
     { x: leftX, y: leftY },
@@ -238,13 +240,12 @@ export const Hero = () => {
       </motion.h1>
 
       <div className='relative z-10 flex w-full max-w-3xl flex-col items-center px-4 pt-10'>
-        <div className='relative mx-auto h-[min(52vh,420px)] w-full max-w-xl'>
+        <div className='mx-auto flex w-full max-w-2xl flex-row flex-nowrap items-center justify-center gap-3 sm:gap-5 md:gap-6'>
           {HERO_CARDS.map((card, index) => (
             <FloatingCard
               key={card.front}
               frontSrc={card.front}
               label={card.label}
-              className={card.className}
               rotate={card.rotate}
               x={cardMotion[index]!.x}
               y={cardMotion[index]!.y}
@@ -258,7 +259,7 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className='mt-2 max-w-md text-center text-sm text-neutral-500 sm:text-base'
+          className='mt-8 max-w-md text-center text-sm text-neutral-500 sm:text-base'
         >
           Off-chain tables. Midnight wallet identity. Buy in with NIGHT when
           you&apos;re ready.
