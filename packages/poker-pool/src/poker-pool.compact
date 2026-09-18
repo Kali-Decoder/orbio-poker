@@ -8,6 +8,9 @@ import CompactStandardLibrary;
  * Off-chain: chips = (entryAmount / 1e6 NIGHT Stars) * chipMultiplier, then play poker.
  * House settles claimable NIGHT after the off-chain game, then players claim on-chain.
  * On claim: 5% (500 bps) of the winning amount goes to the sealed treasury address.
+ *
+ * Compact has no integer division — `claim` takes `fee` and proves
+ * fee == floor(amount * treasuryFeeBps / 10000) via multiply bounds.
  */
 
 export sealed ledger entryAmount: Uint<128>;
@@ -84,8 +87,9 @@ export circuit settle(player: UserAddress, amount: Uint<128>): [] {
 
 /**
  * Claim settled winnings: 95% to player, 5% to treasury.
+ * `fee` must equal floor(amount * treasuryFeeBps / 10000) — use `splitClaim` off-chain.
  */
-export circuit claim(player: UserAddress): [] {
+export circuit claim(player: UserAddress, fee: Uint<128>): [] {
   assert(claimable.member(disclose(player)), "Nothing to claim");
   const amount = claimable.lookup(disclose(player));
   assert(disclose(amount) > 0, "Claim amount is zero");
@@ -95,9 +99,14 @@ export circuit claim(player: UserAddress): [] {
     "Contract unshielded balance too low"
   );
 
-  const fee = disclose(
-    ((amount * (treasuryFeeBps as Uint<128>)) / 10000) as Uint<128>
+  // 5% = 1/20. Prove fee == floor(amount / 20) without division (Compact has none).
+  assert(disclose(treasuryFeeBps) == 500, "Treasury fee must be 5%");
+  assert(disclose(fee) * 20 <= disclose(amount), "Treasury fee too high");
+  assert(
+    disclose(amount) - disclose(fee) * 20 < 20,
+    "Treasury fee too low"
   );
+
   const toPlayer = disclose((amount - fee) as Uint<128>);
 
   sendUnshielded(
@@ -109,7 +118,7 @@ export circuit claim(player: UserAddress): [] {
   if (disclose(fee) > 0) {
     sendUnshielded(
       nativeToken(),
-      fee,
+      disclose(fee),
       right<ContractAddress, UserAddress>(treasury)
     );
     totalTreasuryFees = disclose((totalTreasuryFees + fee) as Uint<128>);

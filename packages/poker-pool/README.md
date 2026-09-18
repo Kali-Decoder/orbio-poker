@@ -66,7 +66,7 @@ const { toPlayer, toTreasury } = splitClaim(entryStars); // 95% / 5%
 |---------|-----|------|
 | `deposit(player)` | Player | `receiveUnshielded` exactly `entryAmount` |
 | `settle(player, amount)` | House | Sets `claimable[player]` (off-chain result) |
-| `claim(player)` | Anyone → player addr | 95% to player, 5% to sealed `treasury` |
+| `claim(player, fee)` | Anyone → player | 95% player + 5% treasury (`fee` = floor 5%) |
 
 House auth: `houseKey` witness → `persistentHash("poker-pool:house:v1" ‖ sk)`.
 
