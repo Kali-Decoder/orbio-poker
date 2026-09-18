@@ -1,6 +1,6 @@
-# No-Limit Inference
+# Texas Hold'em on Midnight
 
-AI-agent **No-Limit Texas Hold'em** platform. Poker runs **off-chain** for speed. ERC-20 deposits, escrow, settlement, and withdrawals run **on-chain** (testnet only for MVP).
+Human **No-Limit Texas Hold'em** — poker runs **off-chain** for speed. Players authenticate with a **Midnight wallet** (DApp Connector API: 1AM, Lace, etc.).
 
 > UI theme for `apps/www` is preserved from the existing product look — do not restyle wholesale while building the platform.
 
@@ -8,63 +8,51 @@ AI-agent **No-Limit Texas Hold'em** platform. Poker runs **off-chain** for speed
 
 | Path | Role |
 |------|------|
-| `apps/www` | Next.js frontend (existing UI theme) |
-| `apps/server` | Realtime game server (Socket.IO; migrating Express → Fastify) |
+| `apps/www` | Next.js frontend + Midnight wallet connect |
+| `apps/server` | Realtime game server (Express + Socket.IO) |
 | `packages/poker-engine` | Pure deterministic NLHE engine + Vitest |
-| `packages/game-engine` | Legacy simplified engine (kept for current UI wiring) |
-| `packages/orbio-client` | Orbio OpenAI-compatible client (server-only) |
+| `packages/game-engine` | Legacy simplified engine (current UI wiring) |
 | `packages/db` | Prisma + PostgreSQL models |
 | `packages/shared` | Shared types/constants |
-| `packages/contracts` | Foundry `GameEscrow.sol` |
+| `packages/contracts` | Foundry escrow (optional / future) |
 | `packages/config` | ESLint / TS / Prettier |
 
 ## Quick start
 
 ```bash
 pnpm install
-docker compose up -d   # Postgres + Redis
+# optional: docker compose up -d   # Postgres + Redis if using packages/db
 
-# Poker engine tests (phase gate)
+# Poker engine tests
 pnpm test:poker
 
-# Legacy playable UI (current)
+# Playable UI
 pnpm --filter server dev
 pnpm --filter www dev
 ```
 
+Install a Midnight wallet extension (e.g. **1AM** or **Lace**), set the wallet network to match `NEXT_PUBLIC_MIDNIGHT_NETWORK` (default `preprod`), then click **Connect wallet**.
+
 ## Environment
 
-See `.env.example`. Orbio keys stay on the server:
-
 ```bash
-ORBIO_API_KEY=...
-ORBIO_BASE_URL=https://api.orbio.so/api/v1
+# apps/server
+PORT=4000
+MONGODB_URI=memory
+CORS_ORIGIN=http://localhost:3000
+
+# apps/www
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_WS_URL=http://localhost:4000
+NEXT_PUBLIC_MIDNIGHT_NETWORK=preprod
 ```
 
-## Implementation order
+## Skills used
 
-1. ~~Monorepo + tooling~~
-2. ~~Database schema~~
-3. ~~Pure poker engine~~
-4. ~~Poker tests~~
-5. WebSocket game server (authoritative + `@nli/poker-engine`)
-6. Poker UI (keep theme)
-7. Agent engine
-8. Orbio integration
-9. AI-vs-AI gameplay
-10. Wallet (wagmi/viem)
-11. ERC-20 escrow
-12. Deposit / withdraw
-13. Settlement
-14. Replay
-15. Leaderboard
-16. Security tests
-17. Testnet deployment
+- `react-wallet-connector` — `window.midnight` enumeration, connect/disconnect, unshielded address
+- `midnightskill` — skill router for further Midnight work (contracts, indexer, 1AM dust-free txs)
 
 ## Security notes
 
 - Never trust client game state or actions
-- Never expose `ORBIO_API_KEY` to the browser
-- Never let LLM output move tokens directly
-- Testnet tokens only — no mainnet / real-money yet
-# orbio-poker
+- Server session cookie + Midnight wallet identity for lobby seating

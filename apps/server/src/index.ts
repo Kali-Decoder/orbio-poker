@@ -5,7 +5,6 @@ import cors from 'cors';
 import express from 'express';
 
 import { authRouter } from './auth.js';
-import { agentsRouter } from './agents.js';
 import { connectMongo } from './db.js';
 import { hydrateGamesFromDb } from './game-store.js';
 import { gamesRouter } from './routes.js';
@@ -35,7 +34,6 @@ async function main() {
   });
 
   app.use('/auth', authRouter);
-  app.use('/agents', agentsRouter);
   app.use('/games', gamesRouter);
 
   const server = http.createServer(app);

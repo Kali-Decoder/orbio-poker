@@ -5,7 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**", "out/**"],
-      "env": ["NEXT_PUBLIC_*", "DATABASE_URL", "ORBIO_*", "TOKEN_ADDRESS", "CHAIN_ID"],
+      "env": ["NEXT_PUBLIC_*", "DATABASE_URL", "TOKEN_ADDRESS", "CHAIN_ID"],
       "inputs": ["$TURBO_DEFAULT$", ".env", ".env.local"]
     },
     "lint": {

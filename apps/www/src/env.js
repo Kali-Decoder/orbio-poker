@@ -8,12 +8,14 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_API_URL: z.string().url(),
     NEXT_PUBLIC_WS_URL: z.string().url(),
-    NEXT_PUBLIC_PRIVY_APP_ID: z.string().min(1),
+    NEXT_PUBLIC_MIDNIGHT_NETWORK: z
+      .enum(['undeployed', 'preview', 'preprod', 'mainnet'])
+      .default('preprod'),
   },
   experimental__runtimeEnv: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
-    NEXT_PUBLIC_PRIVY_APP_ID: process.env.NEXT_PUBLIC_PRIVY_APP_ID,
+    NEXT_PUBLIC_MIDNIGHT_NETWORK: process.env.NEXT_PUBLIC_MIDNIGHT_NETWORK,
   },
   skipValidation: Boolean(process.env.SKIP_ENV_VALIDATION),
   emptyStringAsUndefined: true,

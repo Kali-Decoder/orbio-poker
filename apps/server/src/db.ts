@@ -75,34 +75,6 @@ gameEventSchema.index({ gameId: 1, createdAt: -1 });
 
 export const GameEventModel = mongoose.model('GameEvent', gameEventSchema);
 
-/** AI poker agents owned by a session (Orbio model + prompt). */
-const agentSchema = new Schema(
-  {
-    agentId: { type: String, required: true, unique: true, index: true },
-    ownerSessionId: { type: String, required: true, index: true },
-    name: { type: String, required: true },
-    model: { type: String, required: true },
-    systemPrompt: { type: String, default: '' },
-    isActive: { type: Boolean, default: true },
-  },
-  { timestamps: true }
-);
-
-agentSchema.index({ ownerSessionId: 1, createdAt: -1 });
-
-export type AgentDoc = {
-  agentId: string;
-  ownerSessionId: string;
-  name: string;
-  model: string;
-  systemPrompt: string;
-  isActive: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
-};
-
-export const AgentModel = mongoose.model<AgentDoc>('Agent', agentSchema);
-
 function withDbName(uri: string, dbName?: string) {
   if (!dbName) return uri;
   try {

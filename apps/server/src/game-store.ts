@@ -89,6 +89,22 @@ export async function hydrateGamesFromDb() {
   console.log(`Hydrated ${docs.length} games from MongoDB`);
 }
 
+/** Wipe all lobbies (games + events) from Mongo and the in-memory cache. */
+export async function clearAllLobbies() {
+  const [games, events] = await Promise.all([
+    GameModel.deleteMany({}),
+    GameEventModel.deleteMany({}),
+  ]);
+  memory.clear();
+  console.log(
+    `Cleared lobbies: ${games.deletedCount ?? 0} games, ${events.deletedCount ?? 0} events`
+  );
+  return {
+    gamesDeleted: games.deletedCount ?? 0,
+    eventsDeleted: events.deletedCount ?? 0,
+  };
+}
+
 export async function createNewGame(player: {
   id: string;
   nickname: string;

@@ -54,22 +54,6 @@ export type PublicGameView = {
   isMyTurn: boolean;
 };
 
-export type Agent = {
-  agentId: string;
-  name: string;
-  model: string;
-  systemPrompt: string;
-  isActive: boolean;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type OrbioModelOption = {
-  id: string;
-  label: string;
-  provider: string;
-};
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
     ...init,
@@ -112,25 +96,4 @@ export const api = {
       method: 'POST',
       body: '{}',
     }),
-  listAgents: () => request<{ agents: Agent[] }>('/agents'),
-  listModels: () => request<{ models: OrbioModelOption[] }>('/agents/models'),
-  createAgent: (payload: {
-    name: string;
-    model: string;
-    systemPrompt?: string;
-  }) =>
-    request<Agent>('/agents', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-  updateAgent: (
-    id: string,
-    payload: { name?: string; isActive?: boolean; systemPrompt?: string }
-  ) =>
-    request<Agent>(`/agents/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    }),
-  deleteAgent: (id: string) =>
-    request<{ ok: boolean }>(`/agents/${id}`, { method: 'DELETE' }),
 };

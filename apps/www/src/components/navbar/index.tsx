@@ -24,12 +24,6 @@ export const Navbar = () => {
           </Link>
           <Link
             className='hidden hover:text-neutral-950 sm:inline'
-            href='/agents'
-          >
-            Agents
-          </Link>
-          <Link
-            className='hidden hover:text-neutral-950 sm:inline'
             href='/profile'
           >
             Profile

@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
 import { api } from '~/lib/api';
-import { useSession } from '~/providers/session-provider';
 import { errorHandler } from '~/lib/utils';
+import { useMidnightWallet } from '~/providers/midnight-wallet-provider';
+import { useSession } from '~/providers/session-provider';
 
 import { toast } from 'sonner';
 
@@ -22,13 +23,19 @@ import { Input } from './ui/input';
 
 export const CreateGame = () => {
   const { user } = useSession();
+  const { isConnected } = useMidnightWallet();
   const router = useRouter();
   const [gameId, setGameId] = useState<string>('');
+
+  const requirePlayer = () => {
+    if (!isConnected) throw new Error('Connect your Midnight wallet first.');
+    if (!user) throw new Error('Wallet session not ready — try reconnecting.');
+  };
 
   const onCreate = async () => {
     const id = toast.loading('Creating game…');
     try {
-      if (!user) throw new Error('Set a nickname first.');
+      requirePlayer();
       const game = await api.createGame();
       toast.success('Game created', { description: game.gameId, id });
       router.push(`/game/${game.gameId}`);
@@ -40,7 +47,7 @@ export const CreateGame = () => {
   const onJoin = async () => {
     const id = toast.loading('Joining…');
     try {
-      if (!user) throw new Error('Set a nickname first.');
+      requirePlayer();
       if (!gameId.trim()) throw new Error('Enter a game ID.');
       const game = await api.joinGame(gameId.trim());
       toast.success('Joined', { id });

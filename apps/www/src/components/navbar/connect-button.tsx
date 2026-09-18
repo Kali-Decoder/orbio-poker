@@ -2,55 +2,61 @@
 
 import Link from 'next/link';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '~/components/ui/button';
+import {
+  nicknameFromAddress,
+  shortAddress,
+} from '~/lib/midnight/address';
 import { cn, errorHandler } from '~/lib/utils';
+import { useMidnightWallet } from '~/providers/midnight-wallet-provider';
 import { useSession } from '~/providers/session-provider';
 
-function shortAddress(address: string) {
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
-
-function nicknameFromAddress(address: string) {
-  return `0x${address.slice(2, 8)}`;
-}
-
 export const ConnectButton = () => {
-  const { ready, authenticated, login, logout, user } = usePrivy();
-  const { wallets } = useWallets();
+  const {
+    ready,
+    isConnected,
+    isConnecting,
+    address,
+    walletStatus,
+    connect,
+    disconnect,
+  } = useMidnightWallet();
   const { user: sessionUser, setNickname } = useSession();
   const [pending, setPending] = useState(false);
   const syncedWallet = useRef<string | null>(null);
 
-  const walletAddress = useMemo(() => {
-    return wallets[0]?.address ?? user?.wallet?.address ?? null;
-  }, [wallets, user]);
-
   useEffect(() => {
-    if (!authenticated || !walletAddress) return;
+    if (!isConnected || !address) return;
     if (sessionUser?.nickname) return;
-    if (syncedWallet.current === walletAddress) return;
-    syncedWallet.current = walletAddress;
+    if (syncedWallet.current === address) return;
+    syncedWallet.current = address;
 
     void (async () => {
       try {
-        await setNickname(nicknameFromAddress(walletAddress));
+        await setNickname(nicknameFromAddress(address));
       } catch (error) {
         syncedWallet.current = null;
         console.warn(errorHandler(error));
       }
     })();
-  }, [authenticated, walletAddress, sessionUser?.nickname, setNickname]);
+  }, [isConnected, address, sessionUser?.nickname, setNickname]);
 
-  const onConnect = () => {
+  const onConnect = async () => {
     setPending(true);
     try {
-      login();
+      if (walletStatus === 'not-found') {
+        toast.error(
+          'No Midnight wallet found. Install 1AM or Lace, then refresh.'
+        );
+        return;
+      }
+      await connect();
+      toast.success('Midnight wallet connected');
     } catch (error) {
       toast.error(errorHandler(error));
     } finally {
@@ -63,7 +69,7 @@ export const ConnectButton = () => {
     e.stopPropagation();
     setPending(true);
     try {
-      await logout();
+      disconnect();
       syncedWallet.current = null;
       toast.success('Wallet disconnected');
     } catch (error) {
@@ -85,7 +91,7 @@ export const ConnectButton = () => {
     );
   }
 
-  if (authenticated && walletAddress) {
+  if (isConnected && address) {
     return (
       <div className='flex max-w-[50vw] items-center gap-1 rounded-full border border-neutral-200 bg-white py-1 pl-1 pr-1 sm:max-w-none sm:pr-1.5'>
         <Link
@@ -93,11 +99,11 @@ export const ConnectButton = () => {
           className='flex min-w-0 items-center gap-1 rounded-full pr-1'
         >
           <div className='flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1D9BF0] text-xs font-semibold text-white'>
-            {walletAddress.slice(2, 3).toUpperCase()}
+            {address.slice(0, 1).toUpperCase()}
           </div>
           <div className='min-w-0 px-1'>
             <p className='truncate text-sm font-medium text-neutral-900'>
-              {shortAddress(walletAddress)}
+              {shortAddress(address)}
             </p>
           </div>
         </Link>
@@ -120,10 +126,10 @@ export const ConnectButton = () => {
   return (
     <Button
       className='rounded-full bg-neutral-950 px-4 text-white hover:bg-neutral-800'
-      disabled={pending}
+      disabled={pending || isConnecting}
       onClick={onConnect}
     >
-      {pending ? 'Connecting…' : 'Connect wallet'}
+      {pending || isConnecting ? 'Connecting…' : 'Connect wallet'}
     </Button>
   );
 };
