@@ -4,6 +4,7 @@ import React from 'react';
 
 import { CreateGame } from '../create-game';
 import { ConnectButton } from './connect-button';
+import { TreasuryButtons } from './treasury-buttons';
 
 export const Navbar = () => {
   return (
@@ -35,6 +36,7 @@ export const Navbar = () => {
             Profile
           </Link>
           <CreateGame />
+          <TreasuryButtons />
           <ConnectButton />
         </div>
       </div>

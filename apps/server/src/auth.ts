@@ -32,7 +32,7 @@ authRouter.post('/nickname', async (req, res) => {
     session = await SessionModel.create({
       sessionId,
       nickname,
-      chips: 10000,
+      chips: 0,
     });
     res.cookie(SESSION_COOKIE, sessionId, {
       httpOnly: true,

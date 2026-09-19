@@ -1,6 +1,6 @@
 {
   "name": "@nli/poker-pool",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -11,8 +11,8 @@
     "./witnesses": "./src/witnesses.ts"
   },
   "scripts": {
-    "compact": "compact compile src/poker-pool.compact src/managed/poker-pool",
-    "compact:fast": "compact compile --skip-zk src/poker-pool.compact src/managed/poker-pool",
+    "compact": "compact compile src/nli-treasury.compact src/managed/treasury",
+    "compact:fast": "compact compile --skip-zk src/nli-treasury.compact src/managed/treasury",
     "build": "pnpm run compact:fast",
     "typecheck": "tsc --noEmit"
   },

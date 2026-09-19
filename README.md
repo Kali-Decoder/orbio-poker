@@ -20,7 +20,7 @@ Midnight wallet → deposit(entry NIGHT) → pool vault
 |------|------|
 | `apps/www` | Next.js frontend + Midnight wallet |
 | `apps/server` | Realtime game server (Express + Socket.IO) |
-| `packages/poker-pool` | Compact pool vault (`deposit` / `settle` / `claim`) |
+| `packages/poker-pool` | Compact **NLITreasury** — NIGHT `deposit` / `withdraw` (5% fee retained) |
 | `packages/poker-engine` | Pure deterministic NLHE engine + Vitest |
 | `packages/game-engine` | Legacy simplified engine (current UI wiring) |
 | `packages/db` | Prisma + PostgreSQL models |

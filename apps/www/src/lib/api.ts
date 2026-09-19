@@ -110,4 +110,31 @@ export const api = {
     request<{ entries: LeaderboardEntry[] }>(
       `/leaderboard?limit=${encodeURIComponent(String(limit))}`
     ),
+  treasuryDeposit: (nightAmount: number) =>
+    request<{
+      sessionId: string;
+      nickname: string;
+      chips: number;
+      nightAmount: number;
+      chipsAdded: number;
+      chipsPerNight: number;
+      onChain: string;
+    }>('/treasury/deposit', {
+      method: 'POST',
+      body: JSON.stringify({ nightAmount }),
+    }),
+  treasuryWithdraw: (nightAmount: number) =>
+    request<{
+      sessionId: string;
+      nickname: string;
+      chips: number;
+      chipsDebited: number;
+      grossNight: number;
+      feeNight: number;
+      netNight: number;
+      onChain: string;
+    }>('/treasury/withdraw', {
+      method: 'POST',
+      body: JSON.stringify({ nightAmount }),
+    }),
 };

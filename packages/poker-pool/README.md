@@ -1,89 +1,52 @@
-# @nli/poker-pool
+# NLITreasury (Midnight / NIGHT)
 
-Midnight **Compact** vault for poker pool markets.
+On-chain **NIGHT** custody for poker — same role as the Orbio `NLITreasury` CREDIT contract.
 
-On-chain: **deposit** (buy-in) and **claim** (cash-out).  
-Off-chain: chips, dealing, betting, showdown.
+| Layer | Responsibility |
+|-------|----------------|
+| Compact treasury | `deposit` / `withdraw` unshielded NIGHT only |
+| Backend + MongoDB (`night-poker`) | chips, bets, pots, wins/losses |
 
-Skills used: `compact`, `example-payment-dapp`, `example-locker-dapp`, `token-transfers`.
+No on-chain poker actions.
 
 ## Flow
 
 ```
-Deploy pool (entryAmount + chipMultiplier)
-        │
-        ▼
-Player deposit(entryAmount NIGHT Stars)  ──►  vault holds NIGHT
-        │
-        ▼
-Server credits chips = night × chipMultiplier
-  e.g. 100 NIGHT × 10 = 1,000 chips
-        │
-        ▼
-Off-chain No-Limit Hold'em
-        │
-        ▼
-House settle(player, stars)  ──►  claimable[player] = payout
-        │
-        ▼
-Player claim(player)  ──►  95% NIGHT → player
-                          5% NIGHT → treasury
-```
-
-## Markets
-
-One **contract deploy per market**. Presets in `src/markets.ts`:
-
-| Market | Entry | Multiplier | Chips |
-|--------|-------|------------|-------|
-| micro  | 10 NIGHT | ×10 | 100 |
-| low    | 100 NIGHT | ×10 | 1,000 |
-| mid    | 500 NIGHT | ×10 | 5,000 |
-| high   | 1,000 NIGHT | ×10 | 10,000 |
-
-Amounts on-chain are **Stars** (`1 NIGHT = 1_000_000 Stars`).
-
-Constructor args: `entry`, `multiplier`, `houseSecret`, `treasuryAddress`.
-`treasuryFeeBps` is sealed at **500** (5%).
-
-```ts
-import {
-  nightToStars,
-  chipsFromDeposit,
-  splitClaim,
-  POOL_MARKET_PRESETS,
-} from '@nli/poker-pool';
-
-const market = POOL_MARKET_PRESETS.find((m) => m.id === 'low')!;
-const entryStars = nightToStars(market.entryNight); // constructor arg
-const chips = chipsFromDeposit(market.entryNight, market.chipMultiplier); // 1000n
-const { toPlayer, toTreasury } = splitClaim(entryStars); // 95% / 5%
+Wallet ──deposit(amount)──► Treasury (NIGHT Stars)
+                                 │
+                          Backend credits chips (×10)
+                                 │
+                          Off-chain poker
+                                 │
+Backend validates balance ──withdraw(user, amount)──► User gets 95%
+                                                      5% stays in treasury
 ```
 
 ## Circuits
 
 | Circuit | Who | What |
 |---------|-----|------|
-| `deposit(player)` | Player | `receiveUnshielded` exactly `entryAmount` |
-| `settle(player, amount)` | House | Sets `claimable[player]` (off-chain result) |
-| `claim(player, fee)` | Anyone → player | 95% player + 5% treasury (`fee` = floor 5%) |
+| `deposit(player, amount)` | Player | `receiveUnshielded` any positive NIGHT amount |
+| `withdraw(user, amount, fee)` | Operator | Send net (95%); retain 5% fee in vault |
+| `setOperator(newOperator)` | Owner | Rotate backend operator key |
+| `transferOwnership(newOwnerSecret)` | Owner | Rotate owner |
 
-House auth: `houseKey` witness → `persistentHash("poker-pool:house:v1" ‖ sk)`.
+`quoteWithdraw(amount)` is off-chain TS (`feeAmount` / `netAmount`).
+
+## Units
+
+- On-chain: **Stars** (`1 NIGHT = 1_000_000 Stars`)
+- Off-chain chips: `CHIPS_PER_NIGHT = 10` → 100 NIGHT deposit → 1,000 chips
 
 ## Compile
 
 ```bash
-# TypeScript only (fast)
-pnpm --filter @nli/poker-pool compact:fast
-
-# Full ZK keys (needed before deploy / prove)
-pnpm --filter @nli/poker-pool compact
+pnpm --filter @nli/poker-pool compact:fast   # TS + zkir, skip proving keys
+pnpm --filter @nli/poker-pool compact        # full ZK keys before deploy
 ```
 
-Output: `src/managed/poker-pool/{contract,zkir,keys}/`
+Output: `src/managed/treasury/`
 
-Sync `keys` + `zkir` into the Next app as `public/zk/poker-pool/` before browser proving (see `1am-wallet` / `example-payment-dapp`).
+## Midnight vs Solidity note
 
-## Trust model
-
-Poker outcomes are **off-chain**. The house key can set any claimable ≤ vault. Harden later with multi-sig, delayed settle, or ZK game proofs.
+No ERC-20 `approve`. Deposit pulls unshielded NIGHT inside the circuit. No Solidity-style events — backend polls indexer / ledger state after txs.

@@ -10,6 +10,7 @@ import { hydrateGamesFromDb } from './game-store.js';
 import { getLeaderboard } from './leaderboard.js';
 import { gamesRouter } from './routes.js';
 import { createSocketServer } from './socket.js';
+import { treasuryRouter } from './treasury.js';
 
 const PORT = Number(process.env.PORT ?? 4000);
 const MONGODB_URI = process.env.MONGODB_URI ?? 'memory';
@@ -36,6 +37,7 @@ async function main() {
 
   app.use('/auth', authRouter);
   app.use('/games', gamesRouter);
+  app.use('/treasury', treasuryRouter);
 
   app.get('/leaderboard', async (req, res) => {
     try {
