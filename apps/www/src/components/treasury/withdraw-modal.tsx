@@ -15,11 +15,9 @@ import {
 } from '~/components/ui/dialog';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
-import { api } from '~/lib/api';
-import { chipsFromNight, nightFromChips, quoteWithdrawNight } from '~/lib/treasury';
+import { useWithdraw } from '~/lib/hooks';
+import { playSound } from '~/lib/sounds';
 import { errorHandler } from '~/lib/utils';
-import { useMidnightWallet } from '~/providers/midnight-wallet-provider';
-import { useSession } from '~/providers/session-provider';
 
 type Props = {
   open: boolean;
@@ -27,60 +25,32 @@ type Props = {
 };
 
 export function WithdrawModal({ open, onOpenChange }: Props) {
-  const { isConnected, connect, walletStatus, isConnecting } =
-    useMidnightWallet();
-  const { user, refresh } = useSession();
-  const maxNight = user ? nightFromChips(user.chips) : 0;
+  const {
+    chips,
+    nightBalance,
+    isConnected,
+    isConnecting,
+    pending,
+    preview,
+    withdraw,
+  } = useWithdraw();
   const [nightAmount, setNightAmount] = useState('');
-  const [pending, setPending] = useState(false);
 
   const night = Number(nightAmount);
-  const quote = useMemo(
-    () =>
-      Number.isFinite(night) && night > 0 ? quoteWithdrawNight(night) : null,
-    [night]
-  );
-  const chipsRequired =
-    Number.isFinite(night) && night > 0 ? chipsFromNight(night) : 0;
+  const quote = useMemo(() => preview(night), [preview, night]);
 
   const onWithdraw = async () => {
-    if (!Number.isFinite(night) || night <= 0) {
-      toast.error('Enter a positive NIGHT amount');
-      return;
-    }
-    if (!isConnected) {
-      try {
-        if (walletStatus === 'not-found') {
-          throw new Error('No Midnight wallet found.');
-        }
-        await connect();
-      } catch (error) {
-        toast.error(errorHandler(error));
-        return;
-      }
-    }
-    if (!user) {
-      toast.error('Connect wallet and create a session first');
-      return;
-    }
-    if (chipsRequired > user.chips) {
-      toast.error('Not enough chips for this withdrawal');
-      return;
-    }
-
-    setPending(true);
     try {
-      const result = await api.treasuryWithdraw(night);
-      await refresh();
+      const result = await withdraw(night);
+      playSound('paajiCashOut');
       toast.success(
         `Withdrawn — you receive ${result.netNight} NIGHT (5% fee retained)`
       );
       onOpenChange(false);
       setNightAmount('');
     } catch (error) {
+      playSound('paajiLose');
       toast.error(errorHandler(error));
-    } finally {
-      setPending(false);
     }
   };
 
@@ -88,7 +58,7 @@ export function WithdrawModal({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-w-md rounded-3xl border-neutral-200 bg-white p-6'>
         <DialogHeader>
-          <DialogTitle className='flex items-center gap-2 text-xl font-semibold text-neutral-950'>
+          <DialogTitle className='flex items-center gap-2 font-poker text-2xl tracking-wide text-neutral-950'>
             <span className='flex h-9 w-9 items-center justify-center rounded-full bg-sky-50 text-sky-700'>
               <ArrowUpFromLine className='h-4 w-4' />
             </span>
@@ -107,10 +77,12 @@ export function WithdrawModal({ open, onOpenChange }: Props) {
             <button
               type='button'
               className='font-medium text-neutral-900 underline-offset-2 hover:underline'
-              onClick={() => setNightAmount(String(maxNight || ''))}
+              onClick={() => setNightAmount(String(nightBalance || ''))}
             >
-              {maxNight.toLocaleString(undefined, { maximumFractionDigits: 4 })}{' '}
-              NIGHT ({(user?.chips ?? 0).toLocaleString()} chips)
+              {nightBalance.toLocaleString(undefined, {
+                maximumFractionDigits: 4,
+              })}{' '}
+              NIGHT ({chips.toLocaleString()} chips)
             </button>
           </div>
 
@@ -150,7 +122,9 @@ export function WithdrawModal({ open, onOpenChange }: Props) {
             </div>
             <div className='mt-2 flex justify-between text-xs text-neutral-400'>
               <span>Chips debited</span>
-              <span>{chipsRequired > 0 ? chipsRequired.toLocaleString() : '—'}</span>
+              <span>
+                {quote ? quote.chipsRequired.toLocaleString() : '—'}
+              </span>
             </div>
           </div>
 
@@ -160,8 +134,8 @@ export function WithdrawModal({ open, onOpenChange }: Props) {
               pending ||
               isConnecting ||
               !quote ||
-              chipsRequired <= 0 ||
-              chipsRequired > (user?.chips ?? 0)
+              !quote.canAfford ||
+              quote.chipsRequired <= 0
             }
             onClick={onWithdraw}
           >

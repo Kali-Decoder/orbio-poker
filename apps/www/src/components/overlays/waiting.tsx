@@ -32,7 +32,9 @@ export const WaitingOverlay = ({ gameId, view }: WaitingOverlayProps) => {
   return (
     <Overlay>
       <div className='flex flex-col items-center gap-4 text-center'>
-        <div className='text-2xl font-semibold text-neutral-900'>Waiting</div>
+        <div className='font-poker text-3xl tracking-wide text-neutral-900'>
+          Waiting
+        </div>
         <div className='text-sm text-neutral-500'>
           {view.totalPlayers} player{view.totalPlayers === 1 ? '' : 's'} at the
           table

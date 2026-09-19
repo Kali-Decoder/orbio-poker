@@ -68,7 +68,7 @@ export const ProfilePage = () => {
         <p className='text-sm font-medium uppercase tracking-[0.18em] text-neutral-400'>
           Profile
         </p>
-        <h1 className='text-3xl font-semibold tracking-tight text-neutral-950'>
+        <h1 className='font-poker text-4xl tracking-wide text-neutral-950 sm:text-5xl'>
           Connect a Midnight wallet to play
         </h1>
         <p className='text-neutral-600'>
@@ -99,7 +99,7 @@ export const ProfilePage = () => {
       <p className='text-sm font-medium uppercase tracking-[0.18em] text-neutral-400'>
         Profile
       </p>
-      <h1 className='mt-2 text-3xl font-semibold tracking-tight text-neutral-950'>
+      <h1 className='mt-2 font-poker text-4xl tracking-wide text-neutral-950 sm:text-5xl'>
         Your table
       </h1>
       <p className='mt-2 max-w-xl text-neutral-600'>

@@ -3,6 +3,7 @@
 import React from 'react';
 
 import { useSocket } from '~/providers/socket-provider';
+import { playSound } from '~/lib/sounds';
 import { errorHandler } from '~/lib/utils';
 
 import { toast } from 'sonner';
@@ -19,6 +20,7 @@ export const DeclareResult = ({ gameId }: DeclareResultProps) => {
     try {
       if (!socket) throw new Error('Not connected.');
       socket.emit('game:declareWinner', { gameId });
+      playSound('paajiWin');
       toast.success('Result declared', { id });
     } catch (error) {
       toast.error(errorHandler(error), { id });

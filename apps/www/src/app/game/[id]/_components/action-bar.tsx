@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { formatTokens } from '~/lib/format';
+import { playSound } from '~/lib/sounds';
 import { useSocket } from '~/providers/socket-provider';
 import { cn, errorHandler } from '~/lib/utils';
 
@@ -66,9 +67,18 @@ export const ActionBar = ({
     }
   };
 
-  const onFold = () => emit('game:fold', { gameId });
-  const onCheck = () => emit('game:bet', { gameId, amount: 0 });
-  const onCall = () => emit('game:bet', { gameId, amount: callAmount });
+  const onFold = () => {
+    playSound('paajiLose');
+    emit('game:fold', { gameId });
+  };
+  const onCheck = () => {
+    playSound('bet');
+    emit('game:bet', { gameId, amount: 0 });
+  };
+  const onCall = () => {
+    playSound(callAmount >= stack ? 'bomb' : 'bet');
+    emit('game:bet', { gameId, amount: callAmount });
+  };
   const onBetOrRaise = () => {
     if (amount < sliderMin) {
       toast.error(
@@ -78,6 +88,7 @@ export const ActionBar = ({
       );
       return;
     }
+    playSound(amount >= stack ? 'bomb' : 'bet');
     emit('game:bet', { gameId, amount });
   };
 

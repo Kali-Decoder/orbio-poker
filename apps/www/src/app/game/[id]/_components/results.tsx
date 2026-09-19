@@ -23,7 +23,7 @@ export const Results = ({ players }: ResultsProps) => {
           Results
         </DialogTrigger>
         <DialogContent className='max-w-lg rounded-3xl border-neutral-200 bg-white p-6'>
-          <div className='mb-4 text-lg font-semibold text-neutral-900'>
+          <div className='mb-4 font-poker text-2xl tracking-wide text-neutral-900'>
             Hand results
           </div>
           <div className='flex flex-col gap-5'>

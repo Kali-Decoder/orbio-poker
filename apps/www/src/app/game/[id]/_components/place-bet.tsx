@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 
 import { useSocket } from '~/providers/socket-provider';
+import { playSound } from '~/lib/sounds';
 import { errorHandler } from '~/lib/utils';
 
 import { toast } from 'sonner';
@@ -38,6 +39,7 @@ export const PlaceBet = ({ gameId, highestBet, isMyTurn }: PlaceBetProps) => {
         throw new Error('Your bet must be higher than the highest bet.');
       }
       socket.emit('game:bet', { gameId, amount: Number(betAmount) });
+      playSound('bet');
       setBetAmount('');
     } catch (error) {
       toast.error(errorHandler(error));

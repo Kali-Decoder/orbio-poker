@@ -2,11 +2,11 @@
 
 import React from 'react';
 
-import { useQuery } from '@tanstack/react-query';
 import { Trophy } from 'lucide-react';
 
-import { api, type LeaderboardEntry } from '~/lib/api';
+import { type LeaderboardEntry } from '~/lib/api';
 import { formatTokens } from '~/lib/format';
+import { useLeaderboard } from '~/lib/hooks';
 import { cn } from '~/lib/utils';
 import { useSession } from '~/providers/session-provider';
 
@@ -91,14 +91,8 @@ function Row({
 
 export const LeaderboardPage = () => {
   const { user } = useSession();
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['leaderboard'],
-    queryFn: async () => {
-      const res = await api.leaderboard(50);
-      return res.entries;
-    },
-    refetchInterval: 15_000,
-  });
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useLeaderboard(50);
 
   const entries = data ?? [];
 
@@ -109,7 +103,7 @@ export const LeaderboardPage = () => {
       </p>
       <div className='mt-2 flex flex-wrap items-end justify-between gap-3'>
         <div>
-          <h1 className='text-3xl font-semibold tracking-tight text-neutral-950'>
+          <h1 className='font-poker text-4xl tracking-wide text-neutral-950 sm:text-5xl'>
             Leaderboard
           </h1>
           <p className='mt-2 max-w-xl text-neutral-600'>

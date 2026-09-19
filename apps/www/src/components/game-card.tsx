@@ -117,7 +117,7 @@ export const GamesList = () => {
       <div className='mx-auto w-full max-w-6xl px-4 pb-16 pt-20 sm:px-6 sm:pt-24 lg:px-8'>
         <div className='flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between'>
           <div>
-            <h1 className='text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl'>
+            <h1 className='font-poker text-3xl tracking-wide text-neutral-900 sm:text-4xl'>
               Tables
             </h1>
             <p className='mt-1 text-sm text-neutral-500'>

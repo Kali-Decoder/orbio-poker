@@ -19,8 +19,8 @@ const config = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-geist-sans)'],
-        poker: ['var(--font-poker)'],
+        sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        poker: ['var(--font-poker)', 'var(--font-geist-sans)', 'sans-serif'],
       },
       colors: {
         border: 'var(--border)',

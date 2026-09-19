@@ -63,7 +63,7 @@ export const CreateGame = () => {
         Create / Join
       </DialogTrigger>
       <DialogContent className='max-w-md rounded-3xl border-neutral-200 bg-white p-6'>
-        <DialogTitle className='text-xl font-semibold text-neutral-900'>
+        <DialogTitle className='font-poker text-2xl tracking-wide text-neutral-900'>
           Create or join
         </DialogTitle>
         <div className='mt-4 flex flex-col gap-3'>

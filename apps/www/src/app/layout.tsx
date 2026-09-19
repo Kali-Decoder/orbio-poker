@@ -13,6 +13,8 @@ import { ThemeProvider } from '../providers/theme-provider';
 const pokerFont = localFont({
   src: '../../public/fonts/poker.otf',
   variable: '--font-poker',
+  display: 'swap',
+  weight: '400',
 });
 
 export const metadata: Metadata = {

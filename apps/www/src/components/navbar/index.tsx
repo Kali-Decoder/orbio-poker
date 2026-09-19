@@ -11,7 +11,7 @@ export const Navbar = () => {
     <div className='absolute top-0 z-40 h-16 w-full border-b border-neutral-200/80 bg-white/80 backdrop-blur'>
       <div className='mx-auto flex h-full w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8'>
         <Link
-          className='shrink-0 text-base font-semibold tracking-tight text-neutral-900 sm:text-lg'
+          className='shrink-0 font-poker text-lg tracking-wide text-neutral-900 sm:text-xl'
           href='/'
         >
           Texas Hold&lsquo;em

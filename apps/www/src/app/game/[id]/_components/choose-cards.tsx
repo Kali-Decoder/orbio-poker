@@ -52,7 +52,7 @@ export const ChooseCards = ({ cards, gameId }: ChooseCardsProps) => {
   return (
     <div className='fixed bottom-28 left-1/2 z-40 w-full max-w-lg -translate-x-1/2 px-4'>
       <div className='rounded-3xl border border-neutral-200 bg-white p-4 shadow-lg'>
-        <div className='mb-3 text-center text-sm font-medium text-neutral-600'>
+        <div className='mb-3 text-center font-poker text-lg tracking-wide text-neutral-800'>
           Pick 3 community cards for your hand
         </div>
         <div className='mb-4 flex justify-center gap-2'>

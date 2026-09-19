@@ -6,6 +6,7 @@ import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 
 import { DepositModal } from '~/components/treasury/deposit-modal';
 import { WithdrawModal } from '~/components/treasury/withdraw-modal';
+import { playSound } from '~/lib/sounds';
 import { cn } from '~/lib/utils';
 
 export function TreasuryButtons() {
@@ -19,7 +20,10 @@ export function TreasuryButtons() {
           type='button'
           aria-label='Deposit NIGHT'
           title='Deposit'
-          onClick={() => setDepositOpen(true)}
+          onClick={() => {
+            playSound('gems');
+            setDepositOpen(true);
+          }}
           className={cn(
             'flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-50 hover:text-neutral-950'
           )}
@@ -30,7 +34,10 @@ export function TreasuryButtons() {
           type='button'
           aria-label='Withdraw NIGHT'
           title='Withdraw'
-          onClick={() => setWithdrawOpen(true)}
+          onClick={() => {
+            playSound('cashout');
+            setWithdrawOpen(true);
+          }}
           className={cn(
             'flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-50 hover:text-neutral-950'
           )}

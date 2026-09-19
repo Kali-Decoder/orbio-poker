@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { playSound, type SoundName } from '~/lib/sounds';
 import { cn } from '~/lib/utils';
 
 import { Slot } from '@radix-ui/react-slot';
@@ -38,15 +39,24 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /** Play a `/public/sounds` clip on click (by logical name). */
+  sound?: SoundName;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  (
+    { className, variant, size, asChild = false, sound, onClick, ...props },
+    ref
+  ) => {
     const Comp = asChild ? Slot : 'button';
     return (
       <Comp
         ref={ref}
         className={cn(buttonVariants({ variant, size, className }))}
+        onClick={(e) => {
+          if (sound && !props.disabled) playSound(sound);
+          onClick?.(e);
+        }}
         {...props}
       />
     );

@@ -43,7 +43,9 @@ export const ShuffleOverlay = ({ gameId, view }: ShuffleOverlayProps) => {
   return (
     <Overlay>
       <div className='flex flex-col items-center gap-4 text-center'>
-        <div className='text-2xl font-semibold text-neutral-900'>Shuffle</div>
+        <div className='font-poker text-3xl tracking-wide text-neutral-900'>
+          Shuffle
+        </div>
         <div className='text-4xl font-semibold tabular-nums text-neutral-900'>
           {playersShuffled}
           <span className='text-neutral-400'> / {totalPlayers}</span>

@@ -13,6 +13,7 @@ import {
   shortAddress,
 } from '~/lib/midnight/address';
 import { cn, errorHandler } from '~/lib/utils';
+import { playSound } from '~/lib/sounds';
 import { useMidnightWallet } from '~/providers/midnight-wallet-provider';
 import { useSession } from '~/providers/session-provider';
 
@@ -56,8 +57,10 @@ export const ConnectButton = () => {
         return;
       }
       await connect();
+      playSound('gems');
       toast.success('Midnight wallet connected');
     } catch (error) {
+      playSound('paajiLose');
       toast.error(errorHandler(error));
     } finally {
       setPending(false);
@@ -71,6 +74,7 @@ export const ConnectButton = () => {
     try {
       disconnect();
       syncedWallet.current = null;
+      playSound('cashout');
       toast.success('Wallet disconnected');
     } catch (error) {
       toast.error(errorHandler(error));
