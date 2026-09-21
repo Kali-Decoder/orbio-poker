@@ -4,4 +4,3 @@ export * from './overlay';
 export * from './game-card';
 export * from './poker-box';
 export * from './poker-card';
-export * from './follow-twitter-modal';

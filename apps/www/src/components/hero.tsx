@@ -14,9 +14,7 @@ import {
   type MotionValue,
 } from 'framer-motion';
 
-import { FollowTwitterModal } from '~/components/follow-twitter-modal';
 import { Button } from '~/components/ui/button';
-
 const spring = { stiffness: 80, damping: 22, mass: 0.6 };
 const flipSpring = {
   type: 'spring' as const,
@@ -215,8 +213,6 @@ export const Hero = () => {
       ref={sectionRef}
       className='relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#F7F7F8]'
     >
-      <FollowTwitterModal />
-
       <motion.div
         aria-hidden
         className='pointer-events-none absolute inset-0'
