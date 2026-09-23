@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 import { GeistSans } from 'geist/font/sans';
 import type { Metadata } from 'next';
 import { Navbar } from '~/components';
+import { RiskDisclaimerModal } from '~/components/risk-disclaimer-modal';
 import { AppProviders } from '~/providers';
 import '~/styles/globals.css';
 
@@ -33,6 +34,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
           <AppProviders>
             <Navbar />
             <main className='min-h-[100dvh] w-full'>{children}</main>
+            <RiskDisclaimerModal />
             <Toaster theme='light' />
           </AppProviders>
         </ThemeProvider>
