@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 
 import type { PublicGameView } from '~/lib/api';
-import { formatTokens } from '~/lib/format';
+import { ChipAmount } from '~/components/currency-amount';
 import { useSession } from '~/providers/session-provider';
 
 import { ActionBar } from './action-bar';
@@ -37,13 +37,15 @@ export const SleekTable = ({ gameId, view }: SleekTableProps) => {
           <div className='absolute inset-[11%] rounded-[999px] border border-black/10' />
 
           <div className='absolute left-1/2 top-1/2 z-10 flex w-full -translate-x-1/2 -translate-y-[55%] flex-col items-center gap-3'>
-            <div className='rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-neutral-500 shadow-sm backdrop-blur'>
-              Pot{' '}
-              <span className='font-semibold tabular-nums text-neutral-900'>
-                {formatTokens(view.pot)}
-              </span>{' '}
-              tokens
-              <span className='mx-2 text-neutral-300'>·</span>
+            <div className='flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-neutral-500 shadow-sm backdrop-blur'>
+              Pot
+              <ChipAmount
+                value={view.pot}
+                size='sm'
+                className='text-[13px] text-neutral-900'
+                iconClassName='h-4 w-4'
+              />
+              <span className='mx-1 text-neutral-300'>·</span>
               <span className='font-semibold text-neutral-800'>
                 {view.roundLabel}
               </span>
@@ -81,16 +83,18 @@ export const SleekTable = ({ gameId, view }: SleekTableProps) => {
 
           {ordered.map((player, index) => {
             const pos = positions[index] ?? { left: '50%', top: '50%' };
+            const isMe = player.id === view.myPlayerId;
             return (
               <PlayerSeat
                 key={player.id}
                 isDealer={player.seat === 0}
-                isMe={player.id === view.myPlayerId}
+                isMe={isMe}
                 isTurn={
                   player.id === view.nextPlayerId && view.status === 'playing'
                 }
                 player={player}
                 stack={stack}
+                avatarUrl={isMe ? user?.avatar : null}
                 style={{ left: pos.left, top: pos.top }}
               />
             );

@@ -1,10 +1,12 @@
 import {
   chooseCards,
   createGame,
+  createLobby,
   declareWinner,
   fold,
   joinGame,
   listLobbySummary,
+  makeJoinCode,
   placeBet,
   playerShuffle,
   startGame,
@@ -13,22 +15,75 @@ import {
   type PublicGameView,
 } from 'game-engine';
 
-import { GameEventModel, GameModel } from './db.js';
+import {
+  GameEventModel,
+  GameModel,
+  SessionModel,
+  recordPlayerActivity,
+} from './db.js';
 
 /** Short-lived cache; MongoDB is the source of truth. */
 const memory = new Map<string, GameState>();
 
-function lobbyFields(state: GameState) {
+async function sessionMeta(sessionId: string | null | undefined) {
+  if (!sessionId) return { walletAddress: null as string | null, chips: null as number | null };
+  const doc = await SessionModel.findOne({ sessionId })
+    .select('walletAddress chips')
+    .lean();
   return {
-    gameId: state.gameId,
-    status: state.status,
-    round: state.round,
-    totalPlayers: state.players.length,
-    pot: state.pot,
-    winnerId: state.winnerId,
-    playerIds: state.players.map((p) => p.id),
-    playerNicknames: state.players.map((p) => p.nickname),
-    state,
+    walletAddress: doc?.walletAddress ?? null,
+    chips: doc?.chips ?? null,
+  };
+}
+
+async function recordGameActivity(input: {
+  sessionId: string;
+  type: string;
+  summary: string;
+  gameId: string;
+  amountChips?: number | null;
+  payload?: Record<string, unknown>;
+}) {
+  const meta = await sessionMeta(input.sessionId);
+  await recordPlayerActivity({
+    sessionId: input.sessionId,
+    walletAddress: meta.walletAddress,
+    category: 'game',
+    type: input.type,
+    summary: input.summary,
+    gameId: input.gameId,
+    amountChips: input.amountChips ?? null,
+    balanceAfter: meta.chips,
+    payload: input.payload,
+  });
+}
+
+function normalizeState(state: GameState): GameState {
+  return {
+    ...state,
+    name: state.name?.trim() || 'Table',
+    joinCode: (state.joinCode || makeJoinCode()).toUpperCase(),
+    minChips: Math.max(0, Math.floor(state.minChips ?? 0)),
+    maxPlayers: Math.min(10, Math.max(2, Math.floor(state.maxPlayers ?? 6))),
+  };
+}
+
+function lobbyFields(state: GameState) {
+  const normalized = normalizeState(state);
+  return {
+    gameId: normalized.gameId,
+    name: normalized.name,
+    joinCode: normalized.joinCode,
+    minChips: normalized.minChips,
+    maxPlayers: normalized.maxPlayers,
+    status: normalized.status,
+    round: normalized.round,
+    totalPlayers: normalized.players.length,
+    pot: normalized.pot,
+    winnerId: normalized.winnerId,
+    playerIds: normalized.players.map((p) => p.id),
+    playerNicknames: normalized.players.map((p) => p.nickname),
+    state: normalized,
   };
 }
 
@@ -52,32 +107,53 @@ async function save(
   state: GameState,
   event?: { type: string; actorId?: string | null; payload?: Record<string, unknown> }
 ) {
-  memory.set(state.gameId, state);
+  const normalized = normalizeState(state);
+  memory.set(normalized.gameId, normalized);
   await GameModel.findOneAndUpdate(
-    { gameId: state.gameId },
-    lobbyFields(state),
+    { gameId: normalized.gameId },
+    lobbyFields(normalized),
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
   if (event) {
     await persistEvent(
-      state,
+      normalized,
       event.type,
       event.actorId ?? null,
       event.payload ?? {}
     );
   }
-  return state;
+  return normalized;
 }
 
-async function load(gameId: string): Promise<GameState | null> {
-  // Always prefer fresh Mongo document so multi-instance / restart stays consistent
-  const doc = await GameModel.findOne({ gameId }).lean();
+async function load(gameIdOrCode: string): Promise<GameState | null> {
+  const key = gameIdOrCode.trim();
+  if (!key) return null;
+
+  let doc = await GameModel.findOne({ gameId: key }).lean();
+  if (!doc && key.length <= 8) {
+    doc = await GameModel.findOne({
+      joinCode: key.toUpperCase(),
+    }).lean();
+  }
   if (!doc) {
-    memory.delete(gameId);
+    memory.delete(key);
     return null;
   }
-  memory.set(gameId, doc.state);
-  return doc.state;
+  const state = normalizeState(doc.state);
+  // Backfill denormalized fields for older lobbies
+  if (!doc.joinCode || !doc.name) {
+    await GameModel.updateOne(
+      { gameId: state.gameId },
+      {
+        name: state.name,
+        joinCode: state.joinCode,
+        minChips: state.minChips,
+        state,
+      }
+    );
+  }
+  memory.set(state.gameId, state);
+  return state;
 }
 
 export async function hydrateGamesFromDb() {
@@ -115,20 +191,81 @@ export async function createNewGame(player: {
     actorId: player.id,
     payload: { nickname: player.nickname },
   });
+  await recordGameActivity({
+    sessionId: player.id,
+    type: 'game:create',
+    summary: `Created lobby ${state.gameId.slice(0, 8)}`,
+    gameId: state.gameId,
+    payload: { nickname: player.nickname },
+  });
+  return state;
+}
+
+/** Admin-created empty waiting lobby (no house seat). */
+export async function createEmptyLobby(opts: {
+  name: string;
+  minChips: number;
+  maxPlayers?: number;
+}) {
+  const name = opts.name.trim().slice(0, 48);
+  if (name.length < 2) {
+    throw new Error('Lobby name must be at least 2 characters.');
+  }
+  const minChips = Math.max(0, Math.floor(opts.minChips));
+  if (!Number.isFinite(minChips)) {
+    throw new Error('Invalid min chips.');
+  }
+  const maxPlayers = Math.min(
+    10,
+    Math.max(2, Math.floor(opts.maxPlayers ?? 6))
+  );
+
+  // Ensure unique join code
+  let joinCode = makeJoinCode();
+  for (let i = 0; i < 8; i++) {
+    const exists = await GameModel.exists({ joinCode });
+    if (!exists) break;
+    joinCode = makeJoinCode();
+  }
+
+  const state = createLobby({ name, minChips, maxPlayers, joinCode });
+  await save(state, {
+    type: 'lobby:create',
+    actorId: null,
+    payload: { source: 'admin', name, minChips, maxPlayers, joinCode },
+  });
   return state;
 }
 
 export async function joinExistingGame(
-  gameId: string,
-  player: { id: string; nickname: string }
+  gameIdOrCode: string,
+  player: { id: string; nickname: string; chips: number }
 ) {
-  const state = await load(gameId);
+  const state = await load(gameIdOrCode);
   if (!state) throw new Error('GameNotFound');
+
+  const alreadyIn = state.players.some((p) => p.id === player.id);
+  if (!alreadyIn) {
+    const minChips = state.minChips ?? 0;
+    if (player.chips < minChips) {
+      throw new Error(
+        `Need at least ${minChips} chips to join. You have ${player.chips}.`
+      );
+    }
+  }
+
   const next = joinGame(state, player);
   await save(next, {
     type: 'lobby:join',
     actorId: player.id,
     payload: { nickname: player.nickname },
+  });
+  await recordGameActivity({
+    sessionId: player.id,
+    type: 'game:join',
+    summary: `Joined ${state.name} (${state.joinCode})`,
+    gameId: state.gameId,
+    payload: { nickname: player.nickname, minChips: state.minChips },
   });
   return next;
 }
@@ -161,9 +298,13 @@ export async function listGames(filter: ListGamesFilter = {}) {
     .lean();
 
   return docs.map((d) => {
-    const summary = listLobbySummary(d.state);
+    const summary = listLobbySummary(normalizeState(d.state));
     return {
       ...summary,
+      name: d.name ?? summary.name,
+      joinCode: d.joinCode ?? summary.joinCode,
+      minChips: d.minChips ?? summary.minChips,
+      maxPlayers: (d as { maxPlayers?: number }).maxPlayers ?? summary.maxPlayers,
       // Prefer denormalized Mongo fields when present
       status: d.status ?? summary.status,
       round: d.round ?? summary.round,
@@ -207,7 +348,19 @@ async function mutate(
 }
 
 export async function actionStart(gameId: string, actorId?: string) {
-  return mutate(gameId, startGame, { type: 'game:start', actorId });
+  const next = await mutate(gameId, startGame, {
+    type: 'game:start',
+    actorId,
+  });
+  if (actorId) {
+    await recordGameActivity({
+      sessionId: actorId,
+      type: 'game:start',
+      summary: `Started hand in ${gameId.slice(0, 8)}`,
+      gameId,
+    });
+  }
+  return next;
 }
 
 export async function actionShuffle(gameId: string, playerId: string) {
@@ -222,18 +375,34 @@ export async function actionBet(
   playerId: string,
   amount: number
 ) {
-  return mutate(gameId, (s) => placeBet(s, playerId, amount), {
+  const next = await mutate(gameId, (s) => placeBet(s, playerId, amount), {
     type: 'game:bet',
     actorId: playerId,
     payload: { amount },
   });
+  await recordGameActivity({
+    sessionId: playerId,
+    type: 'game:bet',
+    summary: `Bet ${amount} chips in ${gameId.slice(0, 8)}`,
+    gameId,
+    amountChips: -Math.abs(amount),
+    payload: { amount },
+  });
+  return next;
 }
 
 export async function actionFold(gameId: string, playerId: string) {
-  return mutate(gameId, (s) => fold(s, playerId), {
+  const next = await mutate(gameId, (s) => fold(s, playerId), {
     type: 'game:fold',
     actorId: playerId,
   });
+  await recordGameActivity({
+    sessionId: playerId,
+    type: 'game:fold',
+    summary: `Folded in ${gameId.slice(0, 8)}`,
+    gameId,
+  });
+  return next;
 }
 
 export async function actionChooseCards(
@@ -249,8 +418,33 @@ export async function actionChooseCards(
 }
 
 export async function actionDeclareWinner(gameId: string, actorId?: string) {
-  return mutate(gameId, declareWinner, {
+  const next = await mutate(gameId, declareWinner, {
     type: 'game:declareWinner',
     actorId,
   });
+
+  const winnerId = next.winnerId;
+  const pot = next.pot ?? 0;
+
+  await Promise.all(
+    next.players.map(async (p) => {
+      const won = winnerId != null && p.id === winnerId;
+      await recordGameActivity({
+        sessionId: p.id,
+        type: won ? 'game:win' : 'game:end',
+        summary: won
+          ? `Won pot ${pot} in ${gameId.slice(0, 8)}`
+          : `Hand ended in ${gameId.slice(0, 8)}`,
+        gameId,
+        amountChips: won ? pot : null,
+        payload: {
+          winnerId,
+          pot,
+          nickname: p.nickname,
+        },
+      });
+    })
+  );
+
+  return next;
 }

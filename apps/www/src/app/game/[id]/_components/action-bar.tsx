@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 
-import { formatTokens } from '~/lib/format';
+import { ChipAmount } from '~/components/currency-amount';
 import { playSound } from '~/lib/sounds';
 import { useSocket } from '~/providers/socket-provider';
 import { cn, errorHandler } from '~/lib/utils';
@@ -153,9 +153,13 @@ export const ActionBar = ({
             />
           </div>
 
-          <div className='shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-neutral-900 sm:text-sm'>
-            {formatTokens(clamped)}{' '}
-            <span className='font-medium text-neutral-500'>tokens</span>
+          <div className='shrink-0 whitespace-nowrap sm:text-sm'>
+            <ChipAmount
+              value={clamped}
+              size='sm'
+              className='text-[13px] sm:text-sm'
+              iconClassName='h-4 w-4'
+            />
           </div>
         </div>
 
@@ -186,7 +190,7 @@ export const ActionBar = ({
               disabled={!canAct}
               onClick={onCall}
             >
-              Call {formatTokens(callAmount)}
+              Call <ChipAmount value={callAmount} size='sm' className='inline-flex text-[13px]' iconClassName='h-3.5 w-3.5' />
             </button>
           )}
 
@@ -196,7 +200,13 @@ export const ActionBar = ({
             disabled={!canAct}
             onClick={onBetOrRaise}
           >
-            {primaryLabel} {formatTokens(clamped)}
+            {primaryLabel}{' '}
+            <ChipAmount
+              value={clamped}
+              size='sm'
+              className='inline-flex text-[13px] text-white'
+              iconClassName='h-3.5 w-3.5'
+            />
           </button>
         </div>
 

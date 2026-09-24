@@ -8,7 +8,7 @@ import { authRouter } from './auth.js';
 import { connectMongo } from './db.js';
 import { hydrateGamesFromDb } from './game-store.js';
 import { getLeaderboard } from './leaderboard.js';
-import { gamesRouter } from './routes.js';
+import { gamesRouter, adminRouter } from './routes.js';
 import { createSocketServer } from './socket.js';
 import { treasuryRouter } from './treasury.js';
 
@@ -36,6 +36,7 @@ async function main() {
   });
 
   app.use('/auth', authRouter);
+  app.use('/admin', adminRouter);
   app.use('/games', gamesRouter);
   app.use('/treasury', treasuryRouter);
 

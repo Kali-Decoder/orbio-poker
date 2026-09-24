@@ -14,11 +14,18 @@ import { errorHandler } from '~/lib/utils';
 
 import { toast } from 'sonner';
 
+type ProfileInput = {
+  walletAddress: string;
+  nickname?: string;
+  avatar?: string | null;
+};
+
 type SessionContextValue = {
   user: SessionUser | null;
   loading: boolean;
   refresh: () => Promise<void>;
   setNickname: (nickname: string) => Promise<void>;
+  upsertProfile: (input: ProfileInput) => Promise<SessionUser>;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -57,9 +64,15 @@ export const SessionProvider = ({
     }
   }, []);
 
+  const upsertProfile = useCallback(async (input: ProfileInput) => {
+    const me = await api.upsertProfile(input);
+    setUser(me);
+    return me;
+  }, []);
+
   const value = useMemo(
-    () => ({ user, loading, refresh, setNickname }),
-    [user, loading, refresh, setNickname]
+    () => ({ user, loading, refresh, setNickname, upsertProfile }),
+    [user, loading, refresh, setNickname, upsertProfile]
   );
 
   return (

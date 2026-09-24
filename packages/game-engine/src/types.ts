@@ -24,6 +24,14 @@ export interface PlayerState {
 
 export interface GameState {
   gameId: string;
+  /** Display name for the lobby table. */
+  name: string;
+  /** Short shareable join code (e.g. A7K2MX). */
+  joinCode: string;
+  /** Minimum chip stack required to sit down. */
+  minChips: number;
+  /** Maximum seats at this table. */
+  maxPlayers: number;
   status: GameStatus;
   round: GameRound;
   players: PlayerState[];
@@ -56,6 +64,10 @@ export interface PublicPlayerView {
 
 export interface PublicGameView {
   gameId: string;
+  name: string;
+  joinCode: string;
+  minChips: number;
+  maxPlayers: number;
   status: GameStatus;
   round: GameRound;
   roundLabel: string;

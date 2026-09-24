@@ -7,7 +7,7 @@ Human **No-Limit Texas Hold'em** — poker runs **off-chain** for speed. **NIGHT
 ```
 Midnight wallet → deposit(entry NIGHT) → pool vault
                        ↓
-              chips = night × 10 (off-chain)
+              chips = night × 1.5 (off-chain)
                        ↓
               play No-Limit Hold'em (server)
                        ↓
@@ -43,7 +43,7 @@ Install a Midnight wallet (1AM or Lace), network = `NEXT_PUBLIC_MIDNIGHT_NETWORK
 
 ## Pool markets
 
-Deploy one Compact contract per market (entry + chip multiplier sealed at deploy). Example: **100 NIGHT → 1,000 chips** (×10). See `packages/poker-pool/README.md`.
+Deploy one Compact contract per market (entry + chip rate sealed at deploy). Example: **100 NIGHT → 150 chips** (×1.5). See `packages/poker-pool/README.md`.
 
 ## Skills used
 

@@ -5,6 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowUpFromLine } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ChipAmount, NightAmount } from '~/components/currency-amount';
 import { Button } from '~/components/ui/button';
 import {
   Dialog,
@@ -17,6 +18,7 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { useWithdraw } from '~/lib/hooks';
 import { playSound } from '~/lib/sounds';
+import { CHIPS_PER_NIGHT } from '~/lib/treasury';
 import { errorHandler } from '~/lib/utils';
 
 type Props = {
@@ -27,27 +29,26 @@ type Props = {
 export function WithdrawModal({ open, onOpenChange }: Props) {
   const {
     chips,
-    nightBalance,
     isConnected,
     isConnecting,
     pending,
     preview,
     withdraw,
   } = useWithdraw();
-  const [nightAmount, setNightAmount] = useState('');
+  const [chipAmount, setChipAmount] = useState('');
 
-  const night = Number(nightAmount);
-  const quote = useMemo(() => preview(night), [preview, night]);
+  const chipsOut = Math.floor(Number(chipAmount) || 0);
+  const quote = useMemo(() => preview(chipsOut), [preview, chipsOut]);
 
   const onWithdraw = async () => {
     try {
-      const result = await withdraw(night);
+      const result = await withdraw(chipsOut);
       playSound('paajiCashOut');
       toast.success(
-        `Withdrawn — you receive ${result.netNight} NIGHT (5% fee retained)`
+        `Cashed out ${result.chipsDebited} chips → ${result.netNight} NIGHT`
       );
       onOpenChange(false);
-      setNightAmount('');
+      setChipAmount('');
     } catch (error) {
       playSound('paajiLose');
       toast.error(errorHandler(error));
@@ -62,69 +63,79 @@ export function WithdrawModal({ open, onOpenChange }: Props) {
             <span className='flex h-9 w-9 items-center justify-center rounded-full bg-sky-50 text-sky-700'>
               <ArrowUpFromLine className='h-4 w-4' />
             </span>
-            Withdraw NIGHT
+            Withdraw
           </DialogTitle>
           <DialogDescription className='text-neutral-600'>
-            Cash out table chips to NIGHT. A fixed{' '}
-            <span className='font-medium text-neutral-900'>5% fee</span> stays
-            in the treasury; you receive 95%.
+            Cash out poker chips. You get NIGHT at{' '}
+            <span className='font-medium text-neutral-900'>
+              {CHIPS_PER_NIGHT} chips = 1 NIGHT
+            </span>
+            , minus a{' '}
+            <span className='font-medium text-neutral-900'>5% fee</span>.
           </DialogDescription>
         </DialogHeader>
 
         <div className='mt-2 space-y-4'>
-          <div className='flex items-center justify-between text-sm text-neutral-500'>
-            <span>Available</span>
+          <div className='flex items-center justify-between gap-3 text-sm text-neutral-500'>
+            <span>Your chips</span>
             <button
               type='button'
               className='font-medium text-neutral-900 underline-offset-2 hover:underline'
-              onClick={() => setNightAmount(String(nightBalance || ''))}
+              onClick={() => setChipAmount(String(chips || ''))}
             >
-              {nightBalance.toLocaleString(undefined, {
-                maximumFractionDigits: 4,
-              })}{' '}
-              NIGHT ({chips.toLocaleString()} chips)
+              <ChipAmount value={chips} size='sm' />
             </button>
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='withdraw-night'>Amount (NIGHT)</Label>
+            <Label htmlFor='withdraw-chips'>Chips to cash out</Label>
             <Input
-              id='withdraw-night'
+              id='withdraw-chips'
               type='number'
               min={0}
-              step='any'
-              inputMode='decimal'
+              step={1}
+              inputMode='numeric'
               className='rounded-full'
-              value={nightAmount}
-              onChange={(e) => setNightAmount(e.target.value)}
-              placeholder='50'
+              value={chipAmount}
+              onChange={(e) => setChipAmount(e.target.value)}
+              placeholder='150'
             />
           </div>
 
           <div className='rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600'>
-            <div className='flex justify-between'>
-              <span>Gross</span>
-              <span className='font-medium text-neutral-950'>
-                {quote ? `${quote.grossNight} NIGHT` : '—'}
-              </span>
+            <div className='flex items-center justify-between'>
+              <span>Chips leave</span>
+              <ChipAmount
+                value={quote ? quote.chipsOut : '—'}
+                size='sm'
+                className='font-medium text-amber-800'
+                raw={!quote}
+              />
             </div>
-            <div className='mt-2 flex justify-between'>
+            <div className='mt-2 flex items-center justify-between'>
+              <span>Gross NIGHT</span>
+              <NightAmount
+                value={quote ? String(quote.grossNight) : '—'}
+                size='sm'
+                raw
+              />
+            </div>
+            <div className='mt-2 flex items-center justify-between'>
               <span>Fee (5%)</span>
-              <span className='font-medium text-neutral-950'>
-                {quote ? `${quote.feeNight} NIGHT` : '—'}
-              </span>
+              <NightAmount
+                value={quote ? String(quote.feeNight) : '—'}
+                size='sm'
+                raw
+              />
             </div>
-            <div className='mt-2 flex justify-between border-t border-neutral-200 pt-2'>
-              <span>You receive</span>
-              <span className='font-semibold text-neutral-950'>
-                {quote ? `${quote.netNight} NIGHT` : '—'}
-              </span>
-            </div>
-            <div className='mt-2 flex justify-between text-xs text-neutral-400'>
-              <span>Chips debited</span>
-              <span>
-                {quote ? quote.chipsRequired.toLocaleString() : '—'}
-              </span>
+            <div className='mt-3 flex items-center justify-between border-t border-neutral-200 pt-3'>
+              <span className='font-medium text-neutral-900'>You receive</span>
+              <NightAmount
+                value={quote ? String(quote.netNight) : '—'}
+                size='md'
+                className='text-emerald-700'
+                raw
+              />
             </div>
           </div>
 
@@ -135,14 +146,14 @@ export function WithdrawModal({ open, onOpenChange }: Props) {
               isConnecting ||
               !quote ||
               !quote.canAfford ||
-              quote.chipsRequired <= 0
+              quote.chipsOut <= 0
             }
             onClick={onWithdraw}
           >
             {pending
               ? 'Withdrawing…'
               : isConnected
-                ? 'Withdraw'
+                ? 'Cash out chips'
                 : 'Connect & withdraw'}
           </Button>
         </div>

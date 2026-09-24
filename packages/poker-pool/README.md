@@ -14,7 +14,7 @@ No on-chain poker actions.
 ```
 Wallet ──deposit(amount)──► Treasury (NIGHT Stars)
                                  │
-                          Backend credits chips (×10)
+                          Backend credits chips (×1.5)
                                  │
                           Off-chain poker
                                  │
@@ -36,7 +36,7 @@ Backend validates balance ──withdraw(user, amount)──► User gets 95%
 ## Units
 
 - On-chain: **Stars** (`1 NIGHT = 1_000_000 Stars`)
-- Off-chain chips: `CHIPS_PER_NIGHT = 10` → 100 NIGHT deposit → 1,000 chips
+- Off-chain chips: **1 NIGHT → 1.5 chips** (`CHIP_RATE_NUM/DEN = 3/2`) → 100 NIGHT deposit → 150 chips
 
 ## Compile
 

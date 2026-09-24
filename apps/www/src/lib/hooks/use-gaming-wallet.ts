@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { api, type SessionUser } from '~/lib/api';
+import { defaultAvatarForAddress } from '~/lib/avatars';
+import { nicknameFromAddress } from '~/lib/midnight/address';
 import {
   CHIPS_PER_NIGHT,
   chipsFromNight,
@@ -17,7 +19,7 @@ import { useSession } from '~/providers/session-provider';
  * Play poker with `chips`; deposit/withdraw sync via treasury APIs.
  */
 export function useGamingWallet() {
-  const { user, loading, refresh, setNickname } = useSession();
+  const { user, loading, refresh, upsertProfile } = useSession();
   const {
     isConnected,
     isConnecting,
@@ -30,9 +32,11 @@ export function useGamingWallet() {
   const nightBalance = useMemo(() => nightFromChips(chips), [chips]);
 
   const ensureSession = useCallback(async (): Promise<SessionUser> => {
-    if (user) return user;
+    if (user?.walletAddress && address && user.walletAddress === address) {
+      return user;
+    }
 
-    if (!isConnected) {
+    if (!isConnected || !address) {
       if (walletStatus === 'not-found') {
         throw new Error(
           'No Midnight wallet found. Install 1AM or Lace, then refresh.'
@@ -41,14 +45,17 @@ export function useGamingWallet() {
       await connect();
     }
 
-    const nickname =
-      address && address.length > 8
-        ? `mn_${address.replace(/[^a-zA-Z0-9]/g, '').slice(-6)}`
-        : `player_${Date.now().toString(36).slice(-6)}`;
+    const wallet = address;
+    if (!wallet) {
+      throw new Error('Wallet address unavailable after connect.');
+    }
 
-    await setNickname(nickname);
+    const me = await upsertProfile({
+      walletAddress: wallet,
+      nickname: user?.nickname ?? nicknameFromAddress(wallet),
+      avatar: user?.avatar ?? defaultAvatarForAddress(wallet),
+    });
     await refresh();
-    const me = await api.me();
     return me;
   }, [
     user,
@@ -56,7 +63,7 @@ export function useGamingWallet() {
     walletStatus,
     connect,
     address,
-    setNickname,
+    upsertProfile,
     refresh,
   ]);
 
@@ -154,38 +161,40 @@ export function useWithdraw() {
   const [error, setError] = useState<string | null>(null);
 
   const preview = useCallback(
-    (nightAmount: number) => {
-      if (!Number.isFinite(nightAmount) || nightAmount <= 0) {
+    (chipAmount: number) => {
+      if (!Number.isFinite(chipAmount) || chipAmount <= 0) {
         return null;
       }
-      const quote = quoteWithdrawNight(nightAmount);
-      const chipsRequired = chipsFromNight(nightAmount);
+      const chipsOut = Math.floor(chipAmount);
+      if (chipsOut <= 0) return null;
+      const grossNight =
+        Math.round((chipsOut / CHIPS_PER_NIGHT) * 1_000_000) / 1_000_000;
+      const quote = quoteWithdrawNight(grossNight);
       return {
+        chipsOut,
         ...quote,
-        chipsRequired,
-        canAfford: chipsRequired <= chips,
+        canAfford: chipsOut <= chips,
       };
     },
     [chips]
   );
 
   const withdraw = useCallback(
-    async (nightAmount: number): Promise<WithdrawResult> => {
-      if (!Number.isFinite(nightAmount) || nightAmount <= 0) {
-        throw new Error('Enter a positive NIGHT amount');
+    async (chipAmount: number): Promise<WithdrawResult> => {
+      const chipsOut = Math.floor(chipAmount);
+      if (!Number.isFinite(chipsOut) || chipsOut <= 0) {
+        throw new Error('Enter a positive chip amount');
       }
-      const chipsRequired = chipsFromNight(nightAmount);
-      if (chipsRequired > chips) {
+      if (chipsOut > chips) {
         throw new Error(
-          `Insufficient chips. Need ${chipsRequired}, have ${chips}.`
+          `Insufficient chips. Need ${chipsOut}, have ${chips}.`
         );
       }
       setPending(true);
       setError(null);
       try {
         await ensureSession();
-        // TODO: backend operator calls Compact withdraw(), then debit DB
-        const result = await api.treasuryWithdraw(nightAmount);
+        const result = await api.treasuryWithdraw({ chipsAmount: chipsOut });
         await refresh();
         return result;
       } catch (err) {

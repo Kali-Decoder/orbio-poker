@@ -2,7 +2,14 @@ import { Router } from 'express';
 
 import { SESSION_COOKIE, getSession } from './auth.js';
 import {
-  createNewGame,
+  clearAdminCookie,
+  isAdminRequest,
+  requireAdmin,
+  setAdminCookie,
+  verifyAdminPassword,
+} from './admin.js';
+import {
+  createEmptyLobby,
   getGameEvents,
   getPublicState,
   joinExistingGame,
@@ -67,20 +74,18 @@ gamesRouter.get('/:id/events', async (req, res) => {
   }
 });
 
-gamesRouter.post('/', async (req, res) => {
+/** Admin-only: create an empty waiting lobby. */
+gamesRouter.post('/', requireAdmin, async (req, res) => {
   try {
-    const session = await requireSession(req);
-    const state = await createNewGame({
-      id: session.sessionId,
-      nickname: session.nickname,
-    });
-    const view = await getPublicState(state.gameId, session.sessionId);
+    const name = String(req.body?.name ?? '').trim();
+    const minChips = Number(req.body?.minChips ?? 0);
+    const maxPlayers = Number(req.body?.maxPlayers ?? 6);
+    const state = await createEmptyLobby({ name, minChips, maxPlayers });
+    const view = await getPublicState(state.gameId, null);
     res.json(view);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    res
-      .status(message === 'NotAuthenticated' ? 401 : 400)
-      .json({ error: message });
+    res.status(400).json({ error: message });
   }
 });
 
@@ -90,6 +95,7 @@ gamesRouter.post('/:id/join', async (req, res) => {
     const state = await joinExistingGame(req.params.id, {
       id: session.sessionId,
       nickname: session.nickname,
+      chips: session.chips ?? 0,
     });
     const view = await getPublicState(state.gameId, session.sessionId);
     res.json(view);
@@ -103,4 +109,25 @@ gamesRouter.post('/:id/join', async (req, res) => {
           : 400;
     res.status(status).json({ error: message });
   }
+});
+
+export const adminRouter = Router();
+
+adminRouter.post('/login', (req, res) => {
+  const password = String(req.body?.password ?? '');
+  if (!verifyAdminPassword(password)) {
+    res.status(401).json({ error: 'Invalid password' });
+    return;
+  }
+  setAdminCookie(res);
+  res.json({ ok: true, admin: true });
+});
+
+adminRouter.post('/logout', (_req, res) => {
+  clearAdminCookie(res);
+  res.json({ ok: true });
+});
+
+adminRouter.get('/me', (req, res) => {
+  res.json({ admin: isAdminRequest(req) });
 });

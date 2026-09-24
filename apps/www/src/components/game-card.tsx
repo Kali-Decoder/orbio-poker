@@ -4,12 +4,12 @@ import Link from 'next/link';
 
 import React, { useState } from 'react';
 
-import { api, type LobbyGame } from '~/lib/api';
-import { formatTokens } from '~/lib/format';
-import { cn } from '~/lib/utils';
-
 import { useQuery } from '@tanstack/react-query';
 
+import { api, type LobbyGame } from '~/lib/api';
+import { cn } from '~/lib/utils';
+
+import { ChipAmount } from './currency-amount';
 import { Button } from './ui/button';
 
 type Filter = 'active' | 'waiting' | 'playing' | 'ended' | 'all';
@@ -29,59 +29,81 @@ const STATUS_STYLE: Record<string, string> = {
   ended: 'bg-neutral-100 text-neutral-600 border-neutral-200',
 };
 
-interface GameCardProps {
-  game: LobbyGame;
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+        STATUS_STYLE[status] ??
+          'border-neutral-200 bg-neutral-100 text-neutral-600'
+      )}
+    >
+      {status}
+    </span>
+  );
 }
 
-export const GameCard = ({ game }: GameCardProps) => {
-  const statusClass =
-    STATUS_STYLE[game.status] ?? 'bg-neutral-100 text-neutral-600 border-neutral-200';
-
+function LobbyRow({ game }: { game: LobbyGame }) {
   return (
-    <div className='flex h-full w-full min-w-0 flex-col gap-3 rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5'>
-      <div className='flex items-center justify-between gap-2'>
-        <span
-          className={cn(
-            'rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
-            statusClass
+    <tr className='border-t border-neutral-100 transition hover:bg-neutral-50/80'>
+      <td className='px-4 py-3.5'>
+        <p className='font-semibold text-neutral-950'>{game.name || 'Table'}</p>
+        <p className='mt-0.5 font-mono text-[11px] text-neutral-400 sm:hidden'>
+          {game.joinCode || '—'}
+        </p>
+      </td>
+      <td className='hidden px-4 py-3.5 font-mono text-sm text-neutral-700 sm:table-cell'>
+        {game.joinCode || '—'}
+      </td>
+      <td className='px-4 py-3.5'>
+        <StatusBadge status={game.status} />
+      </td>
+      <td className='hidden px-4 py-3.5 text-sm tabular-nums text-neutral-700 md:table-cell'>
+        {game.totalPlayers}/{game.maxPlayers ?? '—'}
+      </td>
+      <td className='px-4 py-3.5'>
+        <ChipAmount
+          value={game.minChips ?? 0}
+          size='sm'
+          className='text-sm'
+          iconClassName='h-4 w-4'
+        />
+      </td>
+      <td className='hidden max-w-[12rem] px-4 py-3.5 lg:table-cell'>
+        <div className='flex flex-wrap gap-1'>
+          {(game.players ?? []).length > 0 ? (
+            (game.players ?? []).slice(0, 4).map((p) => (
+              <span
+                key={p.id}
+                className='rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600'
+              >
+                {p.nickname}
+              </span>
+            ))
+          ) : (
+            <span className='text-xs text-neutral-400'>Empty</span>
           )}
-        >
-          {game.status}
-        </span>
-        <span className='shrink-0 text-xs text-neutral-400'>
-          {game.currentRound}
-        </span>
-      </div>
-      <div className='truncate font-mono text-xs text-neutral-800 sm:text-sm'>
-        {game.gameId}
-      </div>
-      <div className='flex min-h-6 flex-wrap gap-1.5'>
-        {(game.players ?? []).map((p) => (
-          <span
-            key={p.id}
-            className='rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600'
-          >
-            {p.nickname}
-          </span>
-        ))}
-      </div>
-      <div className='mt-auto flex justify-between text-sm text-neutral-600'>
-        <span>{game.totalPlayers} players</span>
-        <span>Pot {formatTokens(game.pot ?? 0)}</span>
-      </div>
-      {game.winnerNickname ? (
-        <div className='text-xs font-medium text-neutral-500'>
-          Winner · {game.winnerNickname}
+          {(game.players?.length ?? 0) > 4 ? (
+            <span className='text-[11px] text-neutral-400'>
+              +{(game.players?.length ?? 0) - 4}
+            </span>
+          ) : null}
         </div>
-      ) : null}
-      <Link href={`/game/${game.gameId}`} className='block w-full'>
-        <Button className='h-10 w-full rounded-full bg-neutral-950 text-white'>
-          {game.status === 'waiting' ? 'Join table' : 'Open table'}
+      </td>
+      <td className='px-4 py-3.5 text-right'>
+        <Button
+          asChild
+          size='sm'
+          className='h-9 rounded-full bg-neutral-950 px-4 text-white'
+        >
+          <Link href={`/game/${game.gameId}`}>
+            {game.status === 'waiting' ? 'Join' : 'Open'}
+          </Link>
         </Button>
-      </Link>
-    </div>
+      </td>
+    </tr>
   );
-};
+}
 
 export const GamesList = () => {
   const [filter, setFilter] = useState<Filter>('active');
@@ -111,6 +133,8 @@ export const GamesList = () => {
     },
     refetchInterval: 3000,
   });
+
+  const games = data ?? [];
 
   return (
     <div className='min-h-screen w-full bg-[#F7F7F8]'>
@@ -147,15 +171,40 @@ export const GamesList = () => {
         <div className='mt-6 sm:mt-8'>
           {isLoading ? (
             <div className='text-sm text-neutral-400'>Loading lobbies…</div>
-          ) : (data?.length ?? 0) > 0 ? (
-            <div className='grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-              {data!.map((game) => (
-                <GameCard key={game.gameId} game={game} />
-              ))}
+          ) : games.length > 0 ? (
+            <div className='overflow-hidden rounded-2xl border border-neutral-200 bg-white'>
+              <div className='overflow-x-auto'>
+                <table className='w-full min-w-[36rem] border-collapse text-left text-sm'>
+                  <thead>
+                    <tr className='bg-neutral-50/80 text-[11px] font-semibold uppercase tracking-wide text-neutral-400'>
+                      <th className='px-4 py-3 font-semibold'>Lobby</th>
+                      <th className='hidden px-4 py-3 font-semibold sm:table-cell'>
+                        Code
+                      </th>
+                      <th className='px-4 py-3 font-semibold'>Status</th>
+                      <th className='hidden px-4 py-3 font-semibold md:table-cell'>
+                        Seats
+                      </th>
+                      <th className='px-4 py-3 font-semibold'>Min chips</th>
+                      <th className='hidden px-4 py-3 font-semibold lg:table-cell'>
+                        Players
+                      </th>
+                      <th className='px-4 py-3 text-right font-semibold'>
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {games.map((game) => (
+                      <LobbyRow key={game.gameId} game={game} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : (
             <div className='rounded-3xl border border-dashed border-neutral-200 bg-white px-6 py-10 text-center text-sm text-neutral-500 sm:p-10 sm:text-base'>
-              No tables in this filter. Create one from the nav.
+              No tables in this filter.
             </div>
           )}
         </div>

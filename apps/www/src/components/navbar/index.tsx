@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import React from 'react';
 
-import { CreateGame } from '../create-game';
+import { JoinGame } from '../join-game';
 import { ConnectButton } from './connect-button';
 import { TreasuryButtons } from './treasury-buttons';
 
@@ -35,7 +35,7 @@ export const Navbar = () => {
           >
             Profile
           </Link>
-          <CreateGame />
+          <JoinGame />
           <TreasuryButtons />
           <ConnectButton />
         </div>

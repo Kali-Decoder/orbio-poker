@@ -27,8 +27,11 @@ const GamePage = ({ params }: { params: { id: string } }) => {
         const seated =
           next.myPlayerId != null &&
           next.players.some((p) => p.id === next.myPlayerId);
-        if (next.status === 'waiting' && next.myPlayerId && !seated) {
+        if (next.status === 'waiting' && !seated) {
           next = await api.joinGame(gameId);
+          if (next.gameId !== gameId) {
+            window.history.replaceState(null, '', `/game/${next.gameId}`);
+          }
         }
         setView(next);
       } catch (error: unknown) {
@@ -73,8 +76,15 @@ const GamePage = ({ params }: { params: { id: string } }) => {
       ) : null}
       {view.gameEnded ? <Results players={view.players} /> : null}
 
-      <div className='pointer-events-none absolute left-4 top-20 z-30 text-xs text-neutral-400'>
-        {truncate(gameId, 18)}
+      <div className='pointer-events-none absolute left-4 top-20 z-30 max-w-[70vw] text-xs text-neutral-500'>
+        <p className='truncate font-medium text-neutral-700'>
+          {view.name || 'Table'}
+        </p>
+        <p className='mt-0.5 font-mono'>
+          {view.joinCode ? `${view.joinCode} · ` : ''}
+          {truncate(gameId, 14)}
+          {view.minChips > 0 ? ` · min ${view.minChips}` : ''}
+        </p>
       </div>
     </div>
   );

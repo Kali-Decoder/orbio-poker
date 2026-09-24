@@ -24,10 +24,52 @@ function makeId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+const JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export function makeJoinCode(length = 6) {
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += JOIN_CODE_ALPHABET[
+      Math.floor(Math.random() * JOIN_CODE_ALPHABET.length)
+    ]!;
+  }
+  return code;
+}
+
+export type LobbyOptions = {
+  name?: string;
+  minChips?: number;
+  maxPlayers?: number;
+  joinCode?: string;
+  gameId?: string;
+};
+
+function lobbyMeta(opts: LobbyOptions = {}) {
+  const name = (opts.name ?? 'Table').trim().slice(0, 48) || 'Table';
+  const minChips = Math.max(0, Math.floor(opts.minChips ?? 0));
+  const maxPlayers = Math.min(
+    10,
+    Math.max(2, Math.floor(opts.maxPlayers ?? 6))
+  );
+  return {
+    name,
+    minChips,
+    maxPlayers,
+    joinCode: (opts.joinCode ?? makeJoinCode()).toUpperCase(),
+    gameId: opts.gameId ?? makeId('game'),
+  };
+}
+
 export function createGame(
   creator: { id: string; nickname: string },
-  gameId = makeId('game')
+  gameIdOrOpts?: string | LobbyOptions
 ): GameState {
+  const opts =
+    typeof gameIdOrOpts === 'string'
+      ? { gameId: gameIdOrOpts }
+      : (gameIdOrOpts ?? {});
+  const meta = lobbyMeta(opts);
+
   const player: PlayerState = {
     id: creator.id,
     nickname: creator.nickname,
@@ -42,10 +84,39 @@ export function createGame(
 
   const ts = nowIso();
   return {
-    gameId,
+    gameId: meta.gameId,
+    name: meta.name,
+    joinCode: meta.joinCode,
+    minChips: meta.minChips,
+    maxPlayers: meta.maxPlayers,
     status: 'waiting',
     round: 'Ante',
     players: [player],
+    deck: [],
+    communityCards: [null, null, null, null, null],
+    nextCardIndex: 0,
+    pot: 0,
+    highestBet: 0,
+    nextSeat: 0,
+    winnerId: null,
+    createdAt: ts,
+    updatedAt: ts,
+  };
+}
+
+/** Empty waiting lobby — players join later (admin-created tables). */
+export function createLobby(opts: LobbyOptions = {}): GameState {
+  const meta = lobbyMeta(opts);
+  const ts = nowIso();
+  return {
+    gameId: meta.gameId,
+    name: meta.name,
+    joinCode: meta.joinCode,
+    minChips: meta.minChips,
+    maxPlayers: meta.maxPlayers,
+    status: 'waiting',
+    round: 'Ante',
+    players: [],
     deck: [],
     communityCards: [null, null, null, null, null],
     nextCardIndex: 0,
@@ -67,6 +138,10 @@ export function joinGame(
   }
   if (state.players.some((p) => p.id === player.id)) {
     return state;
+  }
+  const maxPlayers = state.maxPlayers ?? 6;
+  if (state.players.length >= maxPlayers) {
+    throw new Error('LobbyFull');
   }
   const next: PlayerState = {
     id: player.id,
@@ -368,6 +443,10 @@ export function toPublicView(
 
   return {
     gameId: state.gameId,
+    name: state.name ?? 'Table',
+    joinCode: state.joinCode ?? '',
+    minChips: state.minChips ?? 0,
+    maxPlayers: state.maxPlayers ?? 6,
     status: state.status,
     round: state.round,
     roundLabel: ROUND_LABELS[state.round],
@@ -392,6 +471,10 @@ export function toPublicView(
 export function listLobbySummary(state: GameState) {
   return {
     gameId: state.gameId,
+    name: state.name ?? 'Table',
+    joinCode: state.joinCode ?? '',
+    minChips: state.minChips ?? 0,
+    maxPlayers: state.maxPlayers ?? 6,
     totalPlayers: state.players.length,
     players: state.players.map((p) => ({
       id: p.id,

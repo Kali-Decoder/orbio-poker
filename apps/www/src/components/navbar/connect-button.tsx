@@ -8,6 +8,7 @@ import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '~/components/ui/button';
+import { defaultAvatarForAddress } from '~/lib/avatars';
 import {
   nicknameFromAddress,
   shortAddress,
@@ -27,25 +28,47 @@ export const ConnectButton = () => {
     connect,
     disconnect,
   } = useMidnightWallet();
-  const { user: sessionUser, setNickname } = useSession();
+  const { user: sessionUser, upsertProfile } = useSession();
   const [pending, setPending] = useState(false);
   const syncedWallet = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isConnected || !address) return;
-    if (sessionUser?.nickname) return;
     if (syncedWallet.current === address) return;
+    if (
+      sessionUser?.walletAddress === address &&
+      sessionUser.nickname &&
+      sessionUser.avatar
+    ) {
+      syncedWallet.current = address;
+      return;
+    }
     syncedWallet.current = address;
 
     void (async () => {
       try {
-        await setNickname(nicknameFromAddress(address));
+        await upsertProfile({
+          walletAddress: address,
+          ...(sessionUser?.nickname
+            ? {}
+            : { nickname: nicknameFromAddress(address) }),
+          ...(sessionUser?.avatar
+            ? {}
+            : { avatar: defaultAvatarForAddress(address) }),
+        });
       } catch (error) {
         syncedWallet.current = null;
         console.warn(errorHandler(error));
       }
     })();
-  }, [isConnected, address, sessionUser?.nickname, setNickname]);
+  }, [
+    isConnected,
+    address,
+    sessionUser?.walletAddress,
+    sessionUser?.nickname,
+    sessionUser?.avatar,
+    upsertProfile,
+  ]);
 
   const onConnect = async () => {
     setPending(true);
@@ -96,18 +119,27 @@ export const ConnectButton = () => {
   }
 
   if (isConnected && address) {
+    const avatar =
+      sessionUser?.avatar ?? defaultAvatarForAddress(address);
+    const label = sessionUser?.nickname ?? shortAddress(address);
+
     return (
       <div className='flex max-w-[50vw] items-center gap-1 rounded-full border border-neutral-200 bg-white py-1 pl-1 pr-1 sm:max-w-none sm:pr-1.5'>
         <Link
           href='/profile'
           className='flex min-w-0 items-center gap-1 rounded-full pr-1'
         >
-          <div className='flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1D9BF0] text-xs font-semibold text-white'>
-            {address.slice(0, 1).toUpperCase()}
+          <div className='h-7 w-7 shrink-0 overflow-hidden rounded-full bg-neutral-100'>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={avatar}
+              alt=''
+              className='h-full w-full object-cover'
+            />
           </div>
           <div className='min-w-0 px-1'>
             <p className='truncate text-sm font-medium text-neutral-900'>
-              {shortAddress(address)}
+              {label}
             </p>
           </div>
         </Link>

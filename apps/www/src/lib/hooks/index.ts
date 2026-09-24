@@ -6,4 +6,4 @@ export {
   type WithdrawResult,
 } from './use-gaming-wallet';
 
-export { useLeaderboard, useGames } from './use-games';
+export { useLeaderboard, useGames, usePlayerActivity } from './use-games';

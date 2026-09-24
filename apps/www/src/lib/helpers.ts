@@ -34,8 +34,6 @@ const ranks: Record<number, string> = {
 export const CARD_BACKS = [
   '/cards/BACK-BLUE.png',
   '/cards/BACK-WHITE.png',
-  '/cards/BACK-CHARCOAL.png',
-  '/cards/BACK-NAVY.png',
 ] as const;
 
 /** Stable pick from a seed (seat, index, etc.) so re-renders don't flicker. */

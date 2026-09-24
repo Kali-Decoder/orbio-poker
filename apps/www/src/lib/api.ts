@@ -4,10 +4,16 @@ export type SessionUser = {
   sessionId: string;
   nickname: string;
   chips: number;
+  walletAddress: string | null;
+  avatar: string | null;
 };
 
 export type LobbyGame = {
   gameId: string;
+  name: string;
+  joinCode: string;
+  minChips: number;
+  maxPlayers: number;
   totalPlayers: number;
   players?: Array<{ id: string; nickname: string; seat: number }>;
   currentRound: string;
@@ -24,6 +30,10 @@ export type LobbyGame = {
 
 export type PublicGameView = {
   gameId: string;
+  name: string;
+  joinCode: string;
+  minChips: number;
+  maxPlayers: number;
   status: string;
   round: string;
   roundLabel: string;
@@ -64,6 +74,30 @@ export type LeaderboardEntry = {
   gamesPlayed: number;
 };
 
+export type PlayerActivityEvent = {
+  id: string;
+  sessionId: string;
+  walletAddress: string | null;
+  category: 'deposit' | 'withdraw' | 'game';
+  type: string;
+  gameId: string | null;
+  amountChips: number | null;
+  amountNight: number | null;
+  balanceAfter: number | null;
+  summary: string;
+  payload: Record<string, unknown>;
+  createdAt: string | null;
+};
+
+export type PlayerActivityPage = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+  events: PlayerActivityEvent[];
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
     ...init,
@@ -91,6 +125,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ nickname }),
     }),
+  upsertProfile: (input: {
+    walletAddress: string;
+    nickname?: string;
+    avatar?: string | null;
+  }) =>
+    request<SessionUser>('/auth/profile', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
   listGames: (opts?: { status?: string; includeEnded?: boolean }) => {
     const params = new URLSearchParams();
     if (opts?.status) params.set('status', opts.status);
@@ -98,11 +141,26 @@ export const api = {
     const q = params.toString();
     return request<{ games: LobbyGame[] }>(`/games${q ? `?${q}` : ''}`);
   },
-  getGame: (id: string) => request<PublicGameView>(`/games/${id}`),
-  createGame: () =>
-    request<PublicGameView>('/games', { method: 'POST', body: '{}' }),
-  joinGame: (id: string) =>
-    request<PublicGameView>(`/games/${id}/join`, {
+  getGame: (idOrCode: string) =>
+    request<PublicGameView>(`/games/${encodeURIComponent(idOrCode)}`),
+  createGame: (input: { name: string; minChips: number }) =>
+    request<PublicGameView>('/games', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  joinGame: (idOrCode: string) =>
+    request<PublicGameView>(`/games/${encodeURIComponent(idOrCode)}/join`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  adminMe: () => request<{ admin: boolean }>('/admin/me'),
+  adminLogin: (password: string) =>
+    request<{ ok: boolean; admin: boolean }>('/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+  adminLogout: () =>
+    request<{ ok: boolean }>('/admin/logout', {
       method: 'POST',
       body: '{}',
     }),
@@ -110,6 +168,20 @@ export const api = {
     request<{ entries: LeaderboardEntry[] }>(
       `/leaderboard?limit=${encodeURIComponent(String(limit))}`
     ),
+  activity: (opts?: {
+    page?: number;
+    limit?: number;
+    category?: 'deposit' | 'withdraw' | 'game' | 'all';
+  }) => {
+    const params = new URLSearchParams();
+    if (opts?.page) params.set('page', String(opts.page));
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    if (opts?.category && opts.category !== 'all') {
+      params.set('category', opts.category);
+    }
+    const q = params.toString();
+    return request<PlayerActivityPage>(`/auth/activity${q ? `?${q}` : ''}`);
+  },
   treasuryDeposit: (nightAmount: number) =>
     request<{
       sessionId: string;
@@ -123,7 +195,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ nightAmount }),
     }),
-  treasuryWithdraw: (nightAmount: number) =>
+  treasuryWithdraw: (input: { chipsAmount?: number; nightAmount?: number }) =>
     request<{
       sessionId: string;
       nickname: string;
@@ -135,6 +207,6 @@ export const api = {
       onChain: string;
     }>('/treasury/withdraw', {
       method: 'POST',
-      body: JSON.stringify({ nightAmount }),
+      body: JSON.stringify(input),
     }),
 };

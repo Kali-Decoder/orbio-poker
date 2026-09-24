@@ -84,8 +84,19 @@ async function main() {
     body: JSON.stringify({ nickname: 'Bob' }),
   });
 
-  const created = await api(jarA, '/games', { method: 'POST', body: '{}' });
+  await api(jarA, '/admin/login', {
+    method: 'POST',
+    body: JSON.stringify({
+      password: process.env.ADMIN_PASSWORD ?? 'admin123',
+    }),
+  });
+
+  const created = await api(jarA, '/games', {
+    method: 'POST',
+    body: JSON.stringify({ name: 'Smoke Table', minChips: 0 }),
+  });
   const gameId = created.gameId as string;
+  await api(jarA, `/games/${gameId}/join`, { method: 'POST', body: '{}' });
   await api(jarB, `/games/${gameId}/join`, { method: 'POST', body: '{}' });
 
   const sockA = await connectSocket(jarA);

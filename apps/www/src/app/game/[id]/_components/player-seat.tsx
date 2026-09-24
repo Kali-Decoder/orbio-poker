@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import { formatTokens } from '~/lib/format';
+import { ChipAmount } from '~/components/currency-amount';
 import { cn } from '~/lib/utils';
 
 import { SleekCard } from './sleek-card';
@@ -24,6 +24,7 @@ interface PlayerSeatProps {
   isTurn: boolean;
   isDealer: boolean;
   stack: number;
+  avatarUrl?: string | null;
   style?: React.CSSProperties;
 }
 
@@ -42,6 +43,7 @@ export const PlayerSeat = ({
   isTurn,
   isDealer,
   stack,
+  avatarUrl,
   style,
 }: PlayerSeatProps) => {
   const cards = player.holeCards.length > 0 ? player.holeCards : [];
@@ -71,8 +73,13 @@ export const PlayerSeat = ({
       ) : null}
 
       {player.chipsInPot > 0 ? (
-        <div className='rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-neutral-700 shadow-sm'>
-          Bet {formatTokens(player.chipsInPot)}
+        <div className='rounded-full bg-white px-2.5 py-0.5 shadow-sm'>
+          <ChipAmount
+            value={player.chipsInPot}
+            size='sm'
+            className='text-[11px] font-semibold text-neutral-700'
+            iconClassName='h-3.5 w-3.5'
+          />
         </div>
       ) : null}
 
@@ -92,12 +99,23 @@ export const PlayerSeat = ({
                 : 'border-neutral-200/90'
           )}
         >
-          <div
-            className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white'
-            style={{ background: avatarColor(player.nickname) }}
-          >
-            {player.nickname.slice(0, 1).toUpperCase()}
-          </div>
+          {avatarUrl ? (
+            <div className='h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-100'>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={avatarUrl}
+                alt=''
+                className='h-full w-full object-cover'
+              />
+            </div>
+          ) : (
+            <div
+              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white'
+              style={{ background: avatarColor(player.nickname) }}
+            >
+              {player.nickname.slice(0, 1).toUpperCase()}
+            </div>
+          )}
           <div className='min-w-0 leading-tight'>
             <div className='flex items-center gap-1'>
               <span className='max-w-[7.5rem] truncate text-[13px] font-semibold text-neutral-900'>
@@ -105,8 +123,13 @@ export const PlayerSeat = ({
               </span>
               <BadgeCheck className='h-3.5 w-3.5 shrink-0 fill-[#1D9BF0] text-white' />
             </div>
-            <div className='text-[11px] tabular-nums text-neutral-500'>
-              {formatTokens(Math.max(stack - player.chipsInPot, 0))} tokens
+            <div className='text-[11px] text-neutral-500'>
+              <ChipAmount
+                value={Math.max(stack - player.chipsInPot, 0)}
+                size='sm'
+                className='text-[11px] font-normal text-neutral-500'
+                iconClassName='h-3.5 w-3.5'
+              />
             </div>
           </div>
         </div>

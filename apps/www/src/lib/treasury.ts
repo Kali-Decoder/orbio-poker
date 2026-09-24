@@ -1,11 +1,13 @@
-/** Off-chain chip credit rate: 1 NIGHT → 10 chips. */
-export const CHIPS_PER_NIGHT = 10;
+/** Off-chain chip credit rate: 1 NIGHT → 1.5 poker chips. */
+export const CHIPS_PER_NIGHT = 1.5;
 
 export function chipsFromNight(night: number): number {
+  if (!Number.isFinite(night) || night <= 0) return 0;
   return Math.floor(night * CHIPS_PER_NIGHT);
 }
 
 export function nightFromChips(chips: number): number {
+  if (!Number.isFinite(chips) || chips <= 0) return 0;
   return chips / CHIPS_PER_NIGHT;
 }
 

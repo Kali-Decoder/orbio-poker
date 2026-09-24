@@ -5,6 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowDownToLine } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ChipAmount, NightAmount } from '~/components/currency-amount';
 import { Button } from '~/components/ui/button';
 import {
   Dialog,
@@ -17,6 +18,7 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { useDeposit } from '~/lib/hooks';
 import { playSound } from '~/lib/sounds';
+import { CHIPS_PER_NIGHT } from '~/lib/treasury';
 import { errorHandler } from '~/lib/utils';
 
 type Props = {
@@ -44,7 +46,7 @@ export function DepositModal({ open, onOpenChange }: Props) {
       const result = await deposit(night);
       playSound('gems');
       toast.success(
-        `Deposited ${night} NIGHT → +${result.chipsAdded.toLocaleString()} chips`
+        `Deposited ${night} NIGHT → +${result.chipsAdded} chips`
       );
       onOpenChange(false);
     } catch (error) {
@@ -64,11 +66,11 @@ export function DepositModal({ open, onOpenChange }: Props) {
             Deposit NIGHT
           </DialogTitle>
           <DialogDescription className='text-neutral-600'>
-            Lock NIGHT in the treasury. Your table stack is credited at{' '}
+            Convert NIGHT into poker chips at{' '}
             <span className='font-medium text-neutral-900'>
-              10 chips per NIGHT
+              1 NIGHT → {CHIPS_PER_NIGHT}× chips
             </span>
-            . Poker stays off-chain.
+            . Play with chips; NIGHT stays in the treasury.
           </DialogDescription>
         </DialogHeader>
 
@@ -89,27 +91,34 @@ export function DepositModal({ open, onOpenChange }: Props) {
           </div>
 
           <div className='rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600'>
-            <div className='flex justify-between'>
+            <div className='flex items-center justify-between'>
               <span>You deposit</span>
-              <span className='font-medium text-neutral-950'>
-                {previewData.chipsAdded > 0 ? previewData.nightAmount : '—'}{' '}
-                NIGHT
-              </span>
+              <NightAmount
+                value={
+                  previewData.chipsAdded > 0
+                    ? String(previewData.nightAmount)
+                    : '—'
+                }
+                size='sm'
+                className='font-medium'
+                raw
+              />
             </div>
-            <div className='mt-2 flex justify-between'>
-              <span>Table chips credited</span>
-              <span className='font-medium text-neutral-950'>
-                {previewData.chipsAdded > 0
-                  ? previewData.chipsAdded.toLocaleString()
-                  : '—'}
-              </span>
+            <div className='mt-2 flex items-center justify-between'>
+              <span>Chips credited</span>
+              <ChipAmount
+                value={
+                  previewData.chipsAdded > 0 ? previewData.chipsAdded : '—'
+                }
+                size='sm'
+                className='font-medium'
+                raw={previewData.chipsAdded <= 0}
+              />
             </div>
             {user ? (
-              <div className='mt-2 flex justify-between border-t border-neutral-200 pt-2'>
-                <span>Current stack</span>
-                <span className='font-medium text-neutral-950'>
-                  {chips.toLocaleString()}
-                </span>
+              <div className='mt-2 flex items-center justify-between border-t border-neutral-200 pt-2'>
+                <span>Your chips</span>
+                <ChipAmount value={chips} size='sm' className='font-medium' />
               </div>
             ) : null}
           </div>
