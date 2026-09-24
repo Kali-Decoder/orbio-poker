@@ -30,9 +30,26 @@ const ranks: Record<number, string> = {
   12: '1',
 };
 
-export const getPokerCardImage = (id: number) => {
-  if (id === -1) {
-    return '/cards/BACK.svg';
+/** Midnight-style card backs — pick any at random on the table. */
+export const CARD_BACKS = [
+  '/cards/BACK-BLUE.png',
+  '/cards/BACK-WHITE.png',
+  '/cards/BACK-CHARCOAL.png',
+  '/cards/BACK-NAVY.png',
+] as const;
+
+/** Stable pick from a seed (seat, index, etc.) so re-renders don't flicker. */
+export const getCardBackImage = (seed?: number) => {
+  if (seed === undefined) {
+    return CARD_BACKS[Math.floor(Math.random() * CARD_BACKS.length)]!;
+  }
+  const i = Math.abs(Math.floor(seed)) % CARD_BACKS.length;
+  return CARD_BACKS[i]!;
+};
+
+export const getPokerCardImage = (id: number, backSeed?: number) => {
+  if (id < 0) {
+    return getCardBackImage(backSeed);
   }
   const suit = Math.floor(id / 13);
   const rank = id % 13;

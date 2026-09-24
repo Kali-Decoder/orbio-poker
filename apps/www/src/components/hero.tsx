@@ -15,6 +15,8 @@ import {
 } from 'framer-motion';
 
 import { Button } from '~/components/ui/button';
+import { CARD_BACKS } from '~/lib/helpers';
+
 const spring = { stiffness: 80, damping: 22, mass: 0.6 };
 const flipSpring = {
   type: 'spring' as const,
@@ -44,11 +46,12 @@ const HERO_CARDS = [
   },
 ] as const;
 
-function CardBack() {
+function CardBack({ variant = 0 }: { variant?: number }) {
+  const src = CARD_BACKS[variant % CARD_BACKS.length]!;
   return (
     <div className='absolute inset-0 overflow-hidden rounded-xl bg-black shadow-[0_24px_40px_rgba(15,15,15,0.18)]'>
       <Image
-        src='/cards/MIDNIGHT-BACK.png'
+        src={src}
         alt=''
         fill
         priority
@@ -67,6 +70,7 @@ function FloatingCard({
   y,
   delay = 0,
   reduceMotion,
+  backVariant = 0,
 }: {
   frontSrc: string;
   label: string;
@@ -75,6 +79,7 @@ function FloatingCard({
   y: MotionValue<number>;
   delay?: number;
   reduceMotion: boolean;
+  backVariant?: number;
 }) {
   const [flipped, setFlipped] = useState(false);
 
@@ -122,7 +127,7 @@ function FloatingCard({
               className='absolute inset-0'
               style={{ backfaceVisibility: 'hidden' }}
             >
-              <CardBack />
+              <CardBack variant={backVariant} />
             </div>
             <div
               className='absolute inset-0 overflow-hidden rounded-xl'
@@ -250,6 +255,7 @@ export const Hero = () => {
               y={cardMotion[index]!.y}
               delay={card.delay}
               reduceMotion={reduceMotion}
+              backVariant={index}
             />
           ))}
         </div>

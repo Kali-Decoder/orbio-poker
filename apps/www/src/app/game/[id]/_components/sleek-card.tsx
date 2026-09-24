@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
-import { getPokerCardImage } from '~/lib/helpers';
+import { getCardBackImage, getPokerCardImage } from '~/lib/helpers';
 import { cn } from '~/lib/utils';
 
 interface SleekCardProps {
@@ -10,6 +10,8 @@ interface SleekCardProps {
   className?: string;
   style?: React.CSSProperties;
   size?: 'sm' | 'md' | 'lg';
+  /** Optional seed for a stable face-down back; random per mount if omitted. */
+  backSeed?: number;
 }
 
 const sizes = {
@@ -23,35 +25,21 @@ export const SleekCard = ({
   className,
   style,
   size = 'md',
+  backSeed,
 }: SleekCardProps) => {
+  const [randomBack] = useState(() => getCardBackImage(backSeed));
   const faceDown = cardId < 0;
-  if (faceDown) {
-    return (
-      <div
-        className={cn(
-          sizes[size],
-          'relative overflow-hidden rounded-[0.85rem] border border-neutral-200/90 bg-white shadow-[0_4px_14px_rgba(0,0,0,0.06)]',
-          className
-        )}
-        style={style}
-      >
-        <div className='absolute inset-[5px] rounded-[0.65rem] bg-neutral-950' />
-        <div className='absolute inset-0 flex items-center justify-center'>
-          <div className='h-4 w-4 rounded-full border-[1.5px] border-white/85' />
-        </div>
-      </div>
-    );
-  }
+  const src = faceDown ? randomBack : getPokerCardImage(cardId);
 
   return (
     <img
-      alt='card'
+      alt={faceDown ? 'card back' : 'card'}
       className={cn(
         sizes[size],
         'rounded-[0.85rem] border border-neutral-200/90 object-cover shadow-[0_4px_14px_rgba(0,0,0,0.06)]',
         className
       )}
-      src={getPokerCardImage(cardId)}
+      src={src}
       style={style}
     />
   );
