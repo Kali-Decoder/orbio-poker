@@ -39,7 +39,7 @@ pnpm --filter server dev
 pnpm --filter www dev
 ```
 
-Install a Midnight wallet (1AM or Lace), network = `NEXT_PUBLIC_MIDNIGHT_NETWORK` (default `preprod`).
+Install a Midnight wallet (1AM or Lace), network = `NEXT_PUBLIC_MIDNIGHT_NETWORK` (default `preview`).
 
 ## Pool markets
 

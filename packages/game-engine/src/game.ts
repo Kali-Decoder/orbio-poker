@@ -147,6 +147,14 @@ function recomputePot(players: PlayerState[]): number {
   return players.reduce((sum, p) => sum + p.chipsInPot, 0);
 }
 
+function activeSeats(players: PlayerState[]): number[] {
+  return players.filter((p) => !p.folded).map((p) => p.seat);
+}
+
+function nextActiveAfter(players: PlayerState[], fromSeat: number): number {
+  return activeSeats(players).find((s) => s > fromSeat) ?? -1;
+}
+
 function advanceRound(state: GameState): GameState {
   let { round, communityCards, nextCardIndex, deck, players } = state;
 
@@ -189,7 +197,7 @@ function advanceRound(state: GameState): GameState {
     players,
     communityCards,
     nextCardIndex,
-    nextSeat: 0,
+    nextSeat: activeSeats(players)[0] ?? 0,
     updatedAt: nowIso(),
   };
 }
@@ -221,7 +229,6 @@ export function placeBet(
   );
   const highestBet = amount > state.highestBet ? amount : state.highestBet;
   const pot = recomputePot(players);
-  const isLastSeat = state.nextSeat === state.players.length - 1;
 
   let next: GameState = {
     ...state,
@@ -231,10 +238,11 @@ export function placeBet(
     updatedAt: nowIso(),
   };
 
-  if (isLastSeat) {
-    next = advanceRound({ ...next, nextSeat: 0 });
+  const nextSeat = nextActiveAfter(players, state.nextSeat);
+  if (nextSeat !== -1) {
+    next = { ...next, nextSeat };
   } else {
-    next = { ...next, nextSeat: state.nextSeat + 1 };
+    next = advanceRound(next);
   }
   return next;
 }
@@ -242,6 +250,9 @@ export function placeBet(
 export function fold(state: GameState, playerId: string): GameState {
   if (state.status !== 'playing') {
     throw new Error('GameNotStarted');
+  }
+  if (state.round === 'End') {
+    throw new Error('GameEnded');
   }
   const actor = state.players[state.nextSeat];
   if (!actor || actor.id !== playerId) {
@@ -253,7 +264,30 @@ export function fold(state: GameState, playerId: string): GameState {
   const players = state.players.map((p) =>
     p.id === playerId ? { ...p, folded: true } : p
   );
-  return { ...state, players, updatedAt: nowIso() };
+
+  const remaining = players.filter((p) => !p.folded);
+  if (remaining.length === 1) {
+    const pot = recomputePot(players);
+    const winnerId = remaining[0]!.id;
+    const awarded = players.map((p) => ({
+      ...p,
+      chipsInPot: p.id === winnerId ? pot : 0,
+    }));
+    return {
+      ...state,
+      players: awarded,
+      pot,
+      winnerId,
+      status: 'ended',
+      updatedAt: nowIso(),
+    };
+  }
+
+  const nextSeat = nextActiveAfter(players, state.nextSeat);
+  if (nextSeat !== -1) {
+    return { ...state, players, nextSeat, updatedAt: nowIso() };
+  }
+  return advanceRound({ ...state, players, updatedAt: nowIso() });
 }
 
 export function chooseCards(

@@ -10,7 +10,7 @@ export const env = createEnv({
     NEXT_PUBLIC_WS_URL: z.string().url(),
     NEXT_PUBLIC_MIDNIGHT_NETWORK: z
       .enum(['undeployed', 'preview', 'preprod', 'mainnet'])
-      .default('preprod'),
+      .default('preview'),
   },
   experimental__runtimeEnv: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,

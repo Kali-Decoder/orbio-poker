@@ -5,6 +5,7 @@ import {
   chooseCards,
   createGame,
   declareWinner,
+  fold,
   joinGame,
   placeBet,
   playerShuffle,
@@ -87,5 +88,54 @@ describe('game flow', () => {
     const view = toPublicView(g, 'p1');
     assert.equal(view.gameEnded, true);
     assert.equal(view.communityCards.filter((c) => c >= 0).length, 5);
+  });
+
+  it('fold passes the turn to the next active player', () => {
+    let g = createGame({ id: 'p1', nickname: 'Alice' }, 'game_fold');
+    g = joinGame(g, { id: 'p2', nickname: 'Bob' });
+    g = joinGame(g, { id: 'p3', nickname: 'Cara' });
+    g = startGame(g);
+    g = playerShuffle(g, 'p1');
+    g = playerShuffle(g, 'p2');
+    g = playerShuffle(g, 'p3');
+    assert.equal(g.status, 'playing');
+    assert.equal(g.round, 'Ante');
+    assert.equal(g.nextSeat, 0);
+
+    g = placeBet(g, 'p1', 10);
+    g = placeBet(g, 'p2', 10);
+    assert.equal(g.nextSeat, 2);
+
+    // p3 (last seat, Ante) folds -> round completes, turn skips to p1
+    g = fold(g, 'p3');
+    assert.equal(g.players[2]!.folded, true);
+    assert.equal(g.round, 'PreFlop');
+    assert.equal(g.nextSeat, 0);
+
+    // Other users still have actions: p1, then p2 (p3 skipped)
+    g = placeBet(g, 'p1', 10);
+    assert.equal(g.nextSeat, 1);
+    g = placeBet(g, 'p2', 10);
+    assert.equal(g.round, 'Flop');
+  });
+
+  it('awards the pot to the last player standing after a fold', () => {
+    let g = createGame({ id: 'p1', nickname: 'Alice' }, 'game_foldwin');
+    g = joinGame(g, { id: 'p2', nickname: 'Bob' });
+    g = startGame(g);
+    g = playerShuffle(g, 'p1');
+    g = playerShuffle(g, 'p2');
+
+    g = placeBet(g, 'p1', 10);
+    g = placeBet(g, 'p2', 10);
+    assert.equal(g.round, 'PreFlop');
+
+    // p2 folds on PreFlop -> p1 wins without a showdown
+    g = placeBet(g, 'p1', 10);
+    g = fold(g, 'p2');
+    assert.equal(g.status, 'ended');
+    assert.equal(g.winnerId, 'p1');
+    assert.equal(g.pot, 30);
+    assert.equal(g.players[0]!.chipsInPot, 30);
   });
 });

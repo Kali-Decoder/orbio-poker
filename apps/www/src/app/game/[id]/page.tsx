@@ -71,7 +71,7 @@ const GamePage = ({ params }: { params: { id: string } }) => {
           <DeclareResult gameId={gameId} />
         </>
       ) : null}
-      {view.gameEnded ? <Results players={view.players} /> : null}
+      {view.gameEnded ? <Results view={view} /> : null}
 
       <div className='pointer-events-none absolute left-4 top-20 z-30 text-xs text-neutral-400'>
         {truncate(gameId, 18)}

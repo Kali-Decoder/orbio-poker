@@ -52,7 +52,7 @@ const MidnightWalletContext =
   createContext<MidnightWalletContextValue | null>(null);
 
 const DEFAULT_NETWORK =
-  (env.NEXT_PUBLIC_MIDNIGHT_NETWORK as MidnightNetworkId) ?? 'preprod';
+  (env.NEXT_PUBLIC_MIDNIGHT_NETWORK as MidnightNetworkId) ?? 'preview';
 
 const EMPTY_BALANCES: WalletBalances = {
   unshieldedStars: 0n,

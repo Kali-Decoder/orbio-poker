@@ -3,23 +3,27 @@
 import React from 'react';
 
 import type { PublicGameView } from '~/lib/api';
+import { formatTokens } from '~/lib/format';
 
 import { Dialog, DialogContent, DialogTrigger } from '~/components/ui/dialog';
 
 import { SleekCard } from './sleek-card';
 
-import { MedalIcon } from 'lucide-react';
+import { CrownIcon } from 'lucide-react';
 
 interface ResultsProps {
-  players: PublicGameView['players'];
+  view: PublicGameView;
 }
 
-export const Results = ({ players }: ResultsProps) => {
+export const Results = ({ view }: ResultsProps) => {
+  const scored = view.players.some((p) => p.weight > 0);
+  const community = view.communityCards.filter((c) => c >= 0);
+
   return (
     <div className='fixed bottom-6 left-6 z-40'>
       <Dialog>
         <DialogTrigger className='flex h-11 items-center gap-2 rounded-full border border-neutral-200 bg-white px-5 text-sm font-semibold text-neutral-900 shadow-sm'>
-          <MedalIcon className='h-4 w-4' />
+          <CrownIcon className='h-4 w-4' />
           Results
         </DialogTrigger>
         <DialogContent className='max-w-lg rounded-3xl border-neutral-200 bg-white p-6'>
@@ -27,30 +31,46 @@ export const Results = ({ players }: ResultsProps) => {
             Hand results
           </div>
           <div className='flex flex-col gap-5'>
-            {players.map((player) => {
+            {view.players.map((player) => {
+              const isWinner = player.id === view.winnerId;
               const hand =
                 player.chosenCommunity.length === 3
                   ? [...player.holeCards, ...player.chosenCommunity]
-                  : player.holeCards;
+                  : isWinner && community.length >= 3
+                    ? [...player.holeCards, ...community]
+                    : player.holeCards;
               return (
                 <div key={player.id} className='flex flex-col gap-2'>
-                  <div className='flex justify-between text-sm'>
+                  <div className='flex items-center justify-between gap-2 text-sm'>
                     <span className='font-semibold text-neutral-900'>
                       {player.nickname}
+                      {isWinner ? (
+                        <span className='ml-2 rounded-full bg-neutral-950 px-2 py-0.5 text-[11px] font-semibold text-white'>
+                          Winner · {formatTokens(player.chipsInPot)}
+                        </span>
+                      ) : player.folded ? (
+                        <span className='ml-2 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-400'>
+                          Folded
+                        </span>
+                      ) : null}
                     </span>
-                    <span className='text-neutral-500'>
-                      Weight {player.weight.toLocaleString()}
-                    </span>
+                    {scored ? (
+                      <span className='text-neutral-500'>
+                        Weight {player.weight.toLocaleString()}
+                      </span>
+                    ) : null}
                   </div>
-                  <div className='flex gap-2'>
-                    {hand.map((cardId, idx) => (
-                      <SleekCard
-                        key={`${player.id}-${idx}`}
-                        cardId={cardId}
-                        size='sm'
-                      />
-                    ))}
-                  </div>
+                  {player.folded && !scored ? null : (
+                    <div className='flex gap-2'>
+                      {hand.map((cardId, idx) => (
+                        <SleekCard
+                          key={`${player.id}-${idx}`}
+                          cardId={cardId}
+                          size='sm'
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
