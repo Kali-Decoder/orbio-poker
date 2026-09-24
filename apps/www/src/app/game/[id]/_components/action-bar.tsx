@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ChipAmount } from '~/components/currency-amount';
 import { playSound } from '~/lib/sounds';
@@ -11,6 +11,10 @@ import { toast } from 'sonner';
 
 const PRESETS = [25, 33, 75, 133] as const;
 
+export type LocalTableAction =
+  | { type: 'fold' }
+  | { type: 'bet'; amount: number };
+
 interface ActionBarProps {
   gameId: string;
   isMyTurn: boolean;
@@ -18,26 +22,30 @@ interface ActionBarProps {
   myChipsInPot: number;
   stack: number;
   disabled?: boolean;
+  /** Offline / dummy table — skip socket and call this instead. */
+  onLocalAction?: (action: LocalTableAction) => void;
 }
 
 export const ActionBar = ({
   gameId,
   isMyTurn,
   highestBet,
-  myChipsInPot: _myChipsInPot,
+  myChipsInPot,
   stack,
   disabled,
+  onLocalAction,
 }: ActionBarProps) => {
   const { socket } = useSocket();
-  const canCheck = highestBet <= 0;
+  const canCheck = highestBet <= myChipsInPot;
   const callAmount = Math.max(highestBet, 0);
   const minRaise = Math.max(highestBet + 1, 1);
   const sliderMin = canCheck ? 1 : minRaise;
-  const sliderMax = Math.max(stack, callAmount, minRaise, 100);
+  const sliderMax = Math.max(stack + myChipsInPot, callAmount, minRaise, 100);
   const [amount, setAmount] = useState(
     canCheck ? Math.max(Math.round(stack * 0.75), 1) : minRaise
   );
   const [preset, setPreset] = useState<number | null>(canCheck ? 75 : null);
+  const lastSliderSoundAt = useRef(0);
 
   useEffect(() => {
     if (canCheck) {
@@ -50,15 +58,38 @@ export const ActionBar = ({
   }, [canCheck, highestBet, minRaise, stack]);
 
   const applyPreset = (pct: number) => {
+    playSound('gems', 0.45);
     setPreset(pct);
     const next = Math.max(sliderMin, Math.round((stack * pct) / 100));
     setAmount(Math.min(next, sliderMax));
   };
 
-  const canAct = isMyTurn && !disabled && Boolean(socket);
+  const onSliderChange = (next: number) => {
+    setPreset(null);
+    setAmount(next);
+    const now = performance.now();
+    if (now - lastSliderSoundAt.current > 70) {
+      lastSliderSoundAt.current = now;
+      playSound('gems', 0.28);
+    }
+  };
+
+  const canAct =
+    isMyTurn && !disabled && (Boolean(onLocalAction) || Boolean(socket));
 
   const emit = (event: string, payload: Record<string, unknown>) => {
     try {
+      if (onLocalAction) {
+        if (!isMyTurn) throw new Error('Not your turn.');
+        if (event === 'game:fold') onLocalAction({ type: 'fold' });
+        else if (event === 'game:bet') {
+          onLocalAction({
+            type: 'bet',
+            amount: Number(payload.amount ?? 0),
+          });
+        }
+        return;
+      }
       if (!socket) throw new Error('Not connected.');
       if (!isMyTurn) throw new Error('Not your turn.');
       socket.emit(event, payload);
@@ -104,7 +135,7 @@ export const ActionBar = ({
     <div className='pointer-events-auto mx-auto w-full max-w-xl px-4 pb-6 pt-2'>
       <div className='flex flex-col items-center gap-2.5'>
         {/* Sizing bar */}
-        <div className='flex w-full items-center gap-3 rounded-full border border-neutral-200/90 bg-white px-3 py-2.5 shadow-[0_4px_24px_rgba(0,0,0,0.05)] sm:gap-4 sm:px-4'>
+        <div className='flex w-full items-center gap-2 rounded-full border border-neutral-200/90 bg-white px-3 py-2 shadow-[0_4px_24px_rgba(0,0,0,0.05)] sm:gap-3 sm:px-4 sm:py-2.5'>
           <div className='flex shrink-0 items-center gap-0.5'>
             {PRESETS.map((p) => (
               <button
@@ -124,7 +155,7 @@ export const ActionBar = ({
             ))}
           </div>
 
-          <div className='relative mx-1 min-w-0 flex-1'>
+          <div className='relative mx-0.5 min-w-0 flex-1'>
             <div className='pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-neutral-200'>
               <div
                 className='h-full rounded-full bg-[#1D9BF0]'
@@ -146,14 +177,11 @@ export const ActionBar = ({
               step={1}
               type='range'
               value={clamped}
-              onChange={(e) => {
-                setPreset(null);
-                setAmount(Number(e.target.value));
-              }}
+              onChange={(e) => onSliderChange(Number(e.target.value))}
             />
           </div>
 
-          <div className='shrink-0 whitespace-nowrap sm:text-sm'>
+          <div className='flex shrink-0 items-center'>
             <ChipAmount
               value={clamped}
               size='sm'
@@ -164,10 +192,10 @@ export const ActionBar = ({
         </div>
 
         {/* Action bar */}
-        <div className='flex w-full max-w-md items-center justify-between gap-2 rounded-full border border-neutral-200/90 bg-white px-2 py-2 shadow-[0_4px_24px_rgba(0,0,0,0.05)] sm:px-2.5'>
+        <div className='flex w-full max-w-md items-center gap-1.5 rounded-full border border-neutral-200/90 bg-white p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.05)] sm:gap-2 sm:p-2'>
           <button
             type='button'
-            className='min-w-[4.5rem] rounded-full px-4 py-2.5 text-[13px] font-semibold text-neutral-500 transition hover:text-neutral-800 disabled:opacity-35'
+            className='inline-flex min-w-[4.25rem] items-center justify-center rounded-full px-3 py-2.5 text-[13px] font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-800 disabled:opacity-35'
             disabled={!canAct}
             onClick={onFold}
           >
@@ -177,7 +205,7 @@ export const ActionBar = ({
           {canCheck ? (
             <button
               type='button'
-              className='min-w-[7rem] flex-1 rounded-full bg-neutral-100 px-4 py-2.5 text-[13px] font-semibold text-neutral-900 transition hover:bg-neutral-200/80 active:scale-[0.98] disabled:opacity-35'
+              className='inline-flex min-w-0 flex-1 items-center justify-center rounded-full bg-neutral-100 px-3 py-2.5 text-[13px] font-semibold text-neutral-900 transition hover:bg-neutral-200/80 active:scale-[0.98] disabled:opacity-35'
               disabled={!canAct}
               onClick={onCheck}
             >
@@ -186,25 +214,31 @@ export const ActionBar = ({
           ) : (
             <button
               type='button'
-              className='min-w-[7rem] flex-1 rounded-full bg-neutral-100 px-4 py-2.5 text-[13px] font-semibold text-neutral-900 transition hover:bg-neutral-200/80 active:scale-[0.98] disabled:opacity-35'
+              className='inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-100 px-3 py-2.5 text-[13px] font-semibold text-neutral-900 transition hover:bg-neutral-200/80 active:scale-[0.98] disabled:opacity-35'
               disabled={!canAct}
               onClick={onCall}
             >
-              Call <ChipAmount value={callAmount} size='sm' className='inline-flex text-[13px]' iconClassName='h-3.5 w-3.5' />
+              <span>Call</span>
+              <ChipAmount
+                value={callAmount}
+                size='sm'
+                className='text-[13px]'
+                iconClassName='h-3.5 w-3.5'
+              />
             </button>
           )}
 
           <button
             type='button'
-            className='min-w-[7.5rem] flex-1 rounded-full bg-neutral-950 px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-neutral-800 active:scale-[0.98] disabled:opacity-35'
+            className='inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-950 px-3 py-2.5 text-[13px] font-semibold text-white transition hover:bg-neutral-800 active:scale-[0.98] disabled:opacity-35'
             disabled={!canAct}
             onClick={onBetOrRaise}
           >
-            {primaryLabel}{' '}
+            <span>{primaryLabel}</span>
             <ChipAmount
               value={clamped}
               size='sm'
-              className='inline-flex text-[13px] text-white'
+              className='text-[13px] text-white'
               iconClassName='h-3.5 w-3.5'
             />
           </button>

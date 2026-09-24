@@ -26,7 +26,7 @@ export const PokerCard = ({
   return (
     <img
       alt={faceDown ? 'card back' : 'Poker Card'}
-      className={cn('rounded-xl object-cover shadow-md', className)}
+      className={cn('rounded-[0.3rem] object-cover shadow-md', className)}
       src={src}
       style={{
         aspectRatio: 63 / 88,

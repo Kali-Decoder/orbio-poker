@@ -63,7 +63,7 @@ export const ChooseCards = ({ cards, gameId }: ChooseCardsProps) => {
                 key={`pick-${i}`}
                 type='button'
                 className={cn(
-                  'rounded-xl ring-offset-2 transition',
+                  'rounded-[0.3rem] ring-offset-2 transition',
                   selected[i] ? 'ring-2 ring-[#1D9BF0]' : 'opacity-80'
                 )}
                 onClick={() =>

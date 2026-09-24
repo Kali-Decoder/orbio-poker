@@ -4,20 +4,41 @@ import React, { useMemo } from 'react';
 
 import type { PublicGameView } from '~/lib/api';
 import { ChipAmount } from '~/components/currency-amount';
+import { cn } from '~/lib/utils';
 import { useSession } from '~/providers/session-provider';
 
-import { ActionBar } from './action-bar';
+import { ActionBar, type LocalTableAction } from './action-bar';
 import { PlayerSeat, seatPositions } from './player-seat';
 import { SleekCard } from './sleek-card';
 
 interface SleekTableProps {
   gameId: string;
   view: PublicGameView;
+  /** Fixed stack for seats (preview / offline UI). */
+  stackOverride?: number;
+  /** Per-seat stacks when stacks differ (dummy play). */
+  stacksByPlayerId?: Record<string, number>;
+  /** Hide live action bar — for dual-player UI previews. */
+  preview?: boolean;
+  /** Compact layout for side-by-side testing. */
+  compact?: boolean;
+  /** Offline / dummy table actions. */
+  onLocalAction?: (action: LocalTableAction) => void;
 }
 
-export const SleekTable = ({ gameId, view }: SleekTableProps) => {
+export const SleekTable = ({
+  gameId,
+  view,
+  stackOverride,
+  stacksByPlayerId,
+  preview = false,
+  compact = false,
+  onLocalAction,
+}: SleekTableProps) => {
   const { user } = useSession();
-  const stack = user?.chips ?? 10000;
+  const defaultStack = stackOverride ?? user?.chips ?? 10000;
+  const myStack =
+    (view.myPlayerId && stacksByPlayerId?.[view.myPlayerId]) ?? defaultStack;
 
   const ordered = useMemo(() => {
     const players = [...view.players].sort((a, b) => a.seat - b.seat);
@@ -30,10 +51,21 @@ export const SleekTable = ({ gameId, view }: SleekTableProps) => {
   const board = view.communityCards.filter((c) => c >= 0);
 
   return (
-    <div className='flex h-[100dvh] w-full flex-col bg-[#F7F7F8] pt-16'>
-      <div className='relative mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4'>
-        <div className='relative aspect-[1.75/1] w-full max-h-[min(64vh,580px)]'>
-          <div className='absolute inset-[7%] rounded-[999px] border-[3px] border-neutral-950 bg-[#C8E6C9] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]' />
+    <div
+      className={cn(
+        'flex w-full flex-col bg-[#F7F7F8]',
+        compact ? 'h-full min-h-[28rem] pt-2' : 'h-[100dvh] pt-16'
+      )}
+    >
+      <div className='relative mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-2 sm:px-4'>
+        <div
+          className={cn(
+            'relative aspect-[1.75/1] w-full',
+            compact
+              ? 'max-h-[min(42vh,360px)]'
+              : 'max-h-[min(64vh,580px)]'
+          )}
+        >          <div className='absolute inset-[7%] rounded-[999px] border-[3px] border-neutral-950 bg-[#C8E6C9] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]' />
           <div className='absolute inset-[11%] rounded-[999px] border border-black/10' />
 
           <div className='absolute left-1/2 top-1/2 z-10 flex w-full -translate-x-1/2 -translate-y-[55%] flex-col items-center gap-3'>
@@ -93,7 +125,7 @@ export const SleekTable = ({ gameId, view }: SleekTableProps) => {
                   player.id === view.nextPlayerId && view.status === 'playing'
                 }
                 player={player}
-                stack={stack}
+                stack={stacksByPlayerId?.[player.id] ?? defaultStack}
                 avatarUrl={isMe ? user?.avatar : null}
                 style={{ left: pos.left, top: pos.top }}
               />
@@ -102,7 +134,10 @@ export const SleekTable = ({ gameId, view }: SleekTableProps) => {
         </div>
       </div>
 
-      {view.status === 'playing' && view.round !== 'End' ? (
+      {!preview &&
+      view.status === 'playing' &&
+      view.round !== 'End' &&
+      !view.gameEnded ? (
         <ActionBar
           gameId={gameId}
           highestBet={view.highestBet}
@@ -110,10 +145,11 @@ export const SleekTable = ({ gameId, view }: SleekTableProps) => {
           myChipsInPot={
             view.players.find((p) => p.id === view.myPlayerId)?.chipsInPot ?? 0
           }
-          stack={stack}
+          stack={myStack}
+          onLocalAction={onLocalAction}
         />
       ) : (
-        <div className='h-28' />
+        <div className={compact ? 'h-6' : 'h-28'} />
       )}
     </div>
   );

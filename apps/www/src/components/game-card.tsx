@@ -147,6 +147,12 @@ export const GamesList = () => {
             <p className='mt-1 text-sm text-neutral-500'>
               Lobbies and live status from MongoDB
             </p>
+            <a
+              href='/dev/table'
+              className='mt-2 inline-block text-xs font-medium text-[#1D9BF0] hover:underline'
+            >
+              Play dummy table →
+            </a>
           </div>
         </div>
 

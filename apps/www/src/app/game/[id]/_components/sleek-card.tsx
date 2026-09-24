@@ -36,7 +36,7 @@ export const SleekCard = ({
       alt={faceDown ? 'card back' : 'card'}
       className={cn(
         sizes[size],
-        'rounded-[0.85rem] border border-neutral-200/90 object-cover shadow-[0_4px_14px_rgba(0,0,0,0.06)]',
+        'rounded-[0.3rem] border border-neutral-200/90 object-cover shadow-[0_4px_14px_rgba(0,0,0,0.06)]',
         className
       )}
       src={src}

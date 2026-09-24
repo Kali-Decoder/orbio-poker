@@ -10,10 +10,10 @@ export const NIGHT_ICON = '/cards/BACK-WHITE.png';
 
 type Size = 'sm' | 'md' | 'lg';
 
-const AVATAR_SIZE: Record<Size, string> = {
-  sm: 'h-5 w-5',
-  md: 'h-7 w-7',
-  lg: 'h-9 w-9 sm:h-10 sm:w-10',
+const ICON_SIZE: Record<Size, string> = {
+  sm: 'h-4 w-4',
+  md: 'h-5 w-5',
+  lg: 'h-7 w-7 sm:h-8 sm:w-8',
 };
 
 const TEXT_SIZE: Record<Size, string> = {
@@ -31,7 +31,7 @@ type AmountProps = {
   raw?: boolean;
 };
 
-function CurrencyAvatar({
+function CurrencyIcon({
   src,
   size,
   className,
@@ -41,21 +41,17 @@ function CurrencyAvatar({
   className?: string;
 }) {
   return (
-    <span
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=''
+      draggable={false}
       className={cn(
-        'inline-flex shrink-0 overflow-hidden rounded-full bg-neutral-950 ring-1 ring-black/10',
-        AVATAR_SIZE[size],
+        'inline-block shrink-0 object-contain',
+        ICON_SIZE[size],
         className
       )}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt=''
-        className='h-full w-full object-cover'
-        draggable={false}
-      />
-    </span>
+    />
   );
 }
 
@@ -74,17 +70,13 @@ export function ChipAmount({
   return (
     <span
       className={cn(
-        'inline-flex min-w-0 items-center gap-2 font-semibold tabular-nums text-neutral-950',
+        'inline-flex min-w-0 items-center gap-1.5 font-semibold tabular-nums leading-none text-neutral-950',
         TEXT_SIZE[size],
         className
       )}
     >
-      <CurrencyAvatar
-        src={CHIP_ICON}
-        size={size}
-        className={iconClassName}
-      />
-      <span className='truncate'>{displayValue(value, raw)}</span>
+      <CurrencyIcon src={CHIP_ICON} size={size} className={iconClassName} />
+      <span className='truncate leading-none'>{displayValue(value, raw)}</span>
     </span>
   );
 }
@@ -99,17 +91,13 @@ export function NightAmount({
   return (
     <span
       className={cn(
-        'inline-flex min-w-0 items-center gap-2 font-semibold tabular-nums text-neutral-950',
+        'inline-flex min-w-0 items-center gap-1.5 font-semibold tabular-nums leading-none text-neutral-950',
         TEXT_SIZE[size],
         className
       )}
     >
-      <CurrencyAvatar
-        src={NIGHT_ICON}
-        size={size}
-        className={iconClassName}
-      />
-      <span className='truncate'>{displayValue(value, raw)}</span>
+      <CurrencyIcon src={NIGHT_ICON} size={size} className={iconClassName} />
+      <span className='truncate leading-none'>{displayValue(value, raw)}</span>
     </span>
   );
 }
