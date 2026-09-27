@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 import React from 'react';
@@ -11,10 +12,23 @@ export const Navbar = () => {
     <div className='absolute top-0 z-40 h-16 w-full border-b border-neutral-200/80 bg-white/80 backdrop-blur'>
       <div className='mx-auto flex h-full w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8'>
         <Link
-          className='shrink-0 font-poker text-lg tracking-wide text-neutral-900 sm:text-xl'
+          className='flex min-w-0 shrink items-center gap-2 text-neutral-900 sm:gap-2.5'
           href='/'
         >
-          Texas Hold&lsquo;em
+          <Image
+            src='/logo-midnight.png'
+            alt=''
+            width={28}
+            height={28}
+            className='h-7 w-7 shrink-0 rounded-full'
+            priority
+          />
+          <span className='truncate font-poker text-base tracking-wide sm:text-lg'>
+            <span className='sm:hidden'>Midnight</span>
+            <span className='hidden sm:inline'>
+              Texas Hold&lsquo;em on Midnight
+            </span>
+          </span>
         </Link>
         <div className='flex min-w-0 flex-row items-center gap-2 text-sm font-medium text-neutral-700 sm:gap-4'>
           <Link

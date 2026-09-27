@@ -11,7 +11,13 @@ import type { PublicGameView } from '~/lib/api';
 import { truncate } from '~/lib/utils';
 
 const ME = 'player_you';
-const OPP = 'player_opp';
+const BOTS = [
+  { id: 'player_bot_1', nickname: 'Nova' },
+  { id: 'player_bot_2', nickname: 'Rex' },
+  { id: 'player_bot_3', nickname: 'Mia' },
+  { id: 'player_bot_4', nickname: 'Kai' },
+] as const;
+const PLAYER_COUNT = 1 + BOTS.length;
 const START_STACK = 1000;
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
@@ -38,7 +44,7 @@ type HandState = {
   deck: number[];
   winnerId: string | null;
   handOver: boolean;
-  seats: [SeatState, SeatState];
+  seats: SeatState[];
 };
 
 function shuffleDeck(): number[] {
@@ -60,8 +66,25 @@ function seatOf(state: HandState, id: string): SeatState {
   return state.seats.find((s) => s.id === id)!;
 }
 
-function otherId(id: string): string {
-  return id === ME ? OPP : ME;
+function activeSeats(state: HandState): SeatState[] {
+  return state.seats.filter((s) => !s.folded);
+}
+
+function nextActiveId(state: HandState, fromId: string): string {
+  const start = state.seats.findIndex((s) => s.id === fromId);
+  for (let i = 1; i <= state.seats.length; i++) {
+    const seat = state.seats[(start + i) % state.seats.length]!;
+    if (!seat.folded && (seat.stack > 0 || seat.chipsInPot < state.highestBet)) {
+      return seat.id;
+    }
+    if (!seat.folded && seat.stack > 0) return seat.id;
+  }
+  // Fallback: next non-folded
+  for (let i = 1; i <= state.seats.length; i++) {
+    const seat = state.seats[(start + i) % state.seats.length]!;
+    if (!seat.folded) return seat.id;
+  }
+  return fromId;
 }
 
 function patchSeat(
@@ -71,9 +94,7 @@ function patchSeat(
 ): HandState {
   return {
     ...state,
-    seats: state.seats.map((s) =>
-      s.id === id ? { ...s, ...patch } : s
-    ) as [SeatState, SeatState],
+    seats: state.seats.map((s) => (s.id === id ? { ...s, ...patch } : s)),
   };
 }
 
@@ -95,13 +116,13 @@ function putChips(state: HandState, id: string, toAmount: number): HandState {
   };
 }
 
-function bothMatched(state: HandState): boolean {
-  const [a, b] = state.seats;
-  if (a.folded || b.folded) return true;
-  const matched = a.chipsInPot === b.chipsInPot;
-  const bothActed = a.actedThisStreet && b.actedThisStreet;
-  const allIn = a.stack === 0 || b.stack === 0;
-  return matched && (bothActed || allIn);
+function roundComplete(state: HandState): boolean {
+  const live = activeSeats(state);
+  if (live.length <= 1) return true;
+  return live.every((s) => {
+    const matched = s.chipsInPot === state.highestBet || s.stack === 0;
+    return matched && (s.actedThisStreet || s.stack === 0);
+  });
 }
 
 function resetStreetFlags(state: HandState): HandState {
@@ -112,7 +133,7 @@ function resetStreetFlags(state: HandState): HandState {
       ...s,
       chipsInPot: 0,
       actedThisStreet: false,
-    })) as [SeatState, SeatState],
+    })),
   };
 }
 
@@ -123,6 +144,11 @@ function dealBoard(state: HandState, n: number): HandState {
     deck,
     community: [...state.community, ...cards],
   };
+}
+
+function firstToAct(state: HandState): string {
+  const live = activeSeats(state);
+  return live.find((s) => s.stack > 0)?.id ?? live[0]!.id;
 }
 
 function runOutBoard(state: HandState): HandState {
@@ -136,26 +162,42 @@ function runOutBoard(state: HandState): HandState {
 
 function advanceStreet(state: HandState): HandState {
   if (state.handOver) return state;
-  if (state.seats.some((s) => s.folded)) {
-    const winner = state.seats.find((s) => !s.folded)!;
-    return awardPot(state, winner.id);
+  const live = activeSeats(state);
+  if (live.length === 1) {
+    return awardPot(state, live[0]!.id);
   }
-  if (!bothMatched(state)) return state;
+  if (!roundComplete(state)) return state;
 
-  // All-in: deal remaining board and showdown
-  if (state.seats.some((s) => s.stack === 0 && !s.folded)) {
-    return runOutBoard(state);
+  if (live.some((s) => s.stack === 0)) {
+    const allAllInOrMatched = live.every(
+      (s) => s.stack === 0 || s.chipsInPot === state.highestBet
+    );
+    if (allAllInOrMatched && live.filter((s) => s.stack > 0).length <= 1) {
+      return runOutBoard(state);
+    }
   }
 
   let next = resetStreetFlags(state);
   if (next.street === 'Preflop') {
-    return { ...dealBoard(next, 3), street: 'Flop', nextId: ME };
+    return {
+      ...dealBoard(next, 3),
+      street: 'Flop',
+      nextId: firstToAct(next),
+    };
   }
   if (next.street === 'Flop') {
-    return { ...dealBoard(next, 1), street: 'Turn', nextId: ME };
+    return {
+      ...dealBoard(next, 1),
+      street: 'Turn',
+      nextId: firstToAct(next),
+    };
   }
   if (next.street === 'Turn') {
-    return { ...dealBoard(next, 1), street: 'River', nextId: ME };
+    return {
+      ...dealBoard(next, 1),
+      street: 'River',
+      nextId: firstToAct(next),
+    };
   }
   return showdown(next);
 }
@@ -167,30 +209,32 @@ function handScore(seat: SeatState, community: number[]): number {
 }
 
 function showdown(state: HandState): HandState {
-  const [a, b] = state.seats;
-  if (a.folded) return awardPot(state, b.id);
-  if (b.folded) return awardPot(state, a.id);
-  const sa = handScore(a, state.community);
-  const sb = handScore(b, state.community);
-  if (sa === sb) {
-    // Split
-    const half = Math.floor(state.pot / 2);
-    return {
-      ...state,
-      street: 'Showdown',
-      handOver: true,
-      winnerId: null,
-      pot: 0,
-      seats: [
-        { ...a, stack: a.stack + half, holeCards: a.holeCards },
-        { ...b, stack: b.stack + (state.pot - half), holeCards: b.holeCards },
-      ],
-    };
+  const live = activeSeats(state);
+  if (live.length === 0) return { ...state, street: 'Showdown', handOver: true };
+  if (live.length === 1) return awardPot(state, live[0]!.id);
+
+  const scored = live.map((s) => ({ id: s.id, score: handScore(s, state.community) }));
+  const best = Math.max(...scored.map((s) => s.score));
+  const winners = scored.filter((s) => s.score === best).map((s) => s.id);
+
+  if (winners.length === 1) {
+    return awardPot({ ...state, street: 'Showdown' }, winners[0]!);
   }
-  return awardPot(
-    { ...state, street: 'Showdown' },
-    sa > sb ? a.id : b.id
-  );
+
+  const share = Math.floor(state.pot / winners.length);
+  const remainder = state.pot - share * winners.length;
+  return {
+    ...state,
+    street: 'Showdown',
+    handOver: true,
+    winnerId: null,
+    pot: 0,
+    seats: state.seats.map((s) => {
+      if (!winners.includes(s.id)) return s;
+      const extra = winners[0] === s.id ? remainder : 0;
+      return { ...s, stack: s.stack + share + extra };
+    }),
+  };
 }
 
 function awardPot(state: HandState, winnerId: string): HandState {
@@ -201,7 +245,7 @@ function awardPot(state: HandState, winnerId: string): HandState {
     pot: 0,
     seats: state.seats.map((s) =>
       s.id === winnerId ? { ...s, stack: s.stack + state.pot } : s
-    ) as [SeatState, SeatState],
+    ),
   };
 }
 
@@ -215,36 +259,76 @@ function applyAction(
 
   if (action.type === 'fold') {
     next = patchSeat(next, actorId, { folded: true, actedThisStreet: true });
-    next = awardPot(next, otherId(actorId));
+    const live = activeSeats(next);
+    if (live.length === 1) {
+      return awardPot(next, live[0]!.id);
+    }
+    next = { ...next, nextId: nextActiveId(next, actorId) };
+    if (roundComplete(next)) {
+      next = advanceStreet(next);
+    }
     return next;
   }
 
-  // Check — already matched the street bet
   if (action.amount === 0) {
     const seat = seatOf(next, actorId);
     if (seat.chipsInPot < next.highestBet) return state;
     next = patchSeat(next, actorId, { actedThisStreet: true });
   } else {
+    const beforeHighest = next.highestBet;
     next = putChips(next, actorId, action.amount);
+    // Raise resets acted flags for others
+    if (next.highestBet > beforeHighest) {
+      next = {
+        ...next,
+        seats: next.seats.map((s) =>
+          s.id === actorId || s.folded
+            ? s
+            : { ...s, actedThisStreet: false }
+        ),
+      };
+    }
   }
 
-  next = { ...next, nextId: otherId(actorId) };
+  next = { ...next, nextId: nextActiveId(next, actorId) };
 
-  if (bothMatched(next)) {
+  if (roundComplete(next)) {
     next = advanceStreet(next);
   }
   return next;
 }
 
-function newHand(prevStacks?: { you: number; opp: number }): HandState {
+function newHand(prevStacks?: Record<string, number>): HandState {
   let deck = shuffleDeck();
+
+  const seats: SeatState[] = [];
   const youDraw = draw(deck, 2);
   deck = youDraw.deck;
-  const oppDraw = draw(deck, 2);
-  deck = oppDraw.deck;
+  seats.push({
+    id: ME,
+    nickname: 'You',
+    seat: 0,
+    stack: prevStacks?.[ME] ?? START_STACK,
+    chipsInPot: 0,
+    folded: false,
+    holeCards: youDraw.cards,
+    actedThisStreet: false,
+  });
 
-  const youStack = prevStacks?.you ?? START_STACK;
-  const oppStack = prevStacks?.opp ?? START_STACK;
+  BOTS.forEach((bot, i) => {
+    const dealt = draw(deck, 2);
+    deck = dealt.deck;
+    seats.push({
+      id: bot.id,
+      nickname: bot.nickname,
+      seat: i + 1,
+      stack: prevStacks?.[bot.id] ?? START_STACK,
+      chipsInPot: 0,
+      folded: false,
+      holeCards: dealt.cards,
+      actedThisStreet: false,
+    });
+  });
 
   let state: HandState = {
     street: 'Preflop',
@@ -255,53 +339,32 @@ function newHand(prevStacks?: { you: number; opp: number }): HandState {
     deck,
     winnerId: null,
     handOver: false,
-    seats: [
-      {
-        id: ME,
-        nickname: 'You',
-        seat: 0,
-        stack: youStack,
-        chipsInPot: 0,
-        folded: false,
-        holeCards: youDraw.cards,
-        actedThisStreet: false,
-      },
-      {
-        id: OPP,
-        nickname: 'Opponent',
-        seat: 1,
-        stack: oppStack,
-        chipsInPot: 0,
-        folded: false,
-        holeCards: oppDraw.cards,
-        actedThisStreet: false,
-      },
-    ],
+    seats,
   };
 
-  // Post blinds
+  // Posts: you = SB, first bot = BB; action starts with next bot (UTG)
   state = putChips(state, ME, SMALL_BLIND);
-  state = putChips(state, OPP, BIG_BLIND);
+  state = putChips(state, BOTS[0]!.id, BIG_BLIND);
   state = {
     ...state,
     seats: state.seats.map((s) => ({
       ...s,
       actedThisStreet: false,
-    })) as [SeatState, SeatState],
-    nextId: ME,
+    })),
+    nextId: BOTS[1]?.id ?? ME,
   };
   return state;
 }
 
 function toView(state: HandState): PublicGameView {
   const me = seatOf(state, ME);
-  const showOppCards = state.handOver && !me.folded;
+  const showCards = state.handOver && !me.folded;
   return {
     gameId: 'game_dummy_play',
     name: 'Dummy Practice Table',
     joinCode: 'DUMMY',
     minChips: 0,
-    maxPlayers: 2,
+    maxPlayers: PLAYER_COUNT,
     status: state.handOver ? 'finished' : 'playing',
     round: state.street,
     roundLabel: state.handOver
@@ -319,7 +382,7 @@ function toView(state: HandState): PublicGameView {
       holeCards:
         s.id === ME
           ? s.holeCards
-          : showOppCards
+          : showCards
             ? s.holeCards
             : s.holeCards.map(() => -1),
       chosenCommunity: [],
@@ -342,8 +405,8 @@ function toView(state: HandState): PublicGameView {
       : state.handOver && !state.winnerId
         ? 'Split'
         : null,
-    totalPlayers: 2,
-    totalShuffles: 2,
+    totalPlayers: PLAYER_COUNT,
+    totalShuffles: PLAYER_COUNT,
     gameStarted: true,
     gameEnded: state.handOver,
     myPlayerId: ME,
@@ -351,70 +414,73 @@ function toView(state: HandState): PublicGameView {
   };
 }
 
-function pickOppAction(state: HandState): LocalTableAction {
-  const opp = seatOf(state, OPP);
-  const toCall = Math.max(0, state.highestBet - opp.chipsInPot);
+function pickBotAction(state: HandState, botId: string): LocalTableAction {
+  const bot = seatOf(state, botId);
+  const toCall = Math.max(0, state.highestBet - bot.chipsInPot);
   const roll = Math.random();
 
   if (toCall === 0) {
-    if (roll < 0.65) return { type: 'bet', amount: 0 };
+    if (roll < 0.7) return { type: 'bet', amount: 0 };
     const bet = Math.min(
-      opp.stack + opp.chipsInPot,
-      Math.max(BIG_BLIND, Math.round((opp.stack + opp.chipsInPot) * 0.35))
+      bot.stack + bot.chipsInPot,
+      Math.max(BIG_BLIND, Math.round((bot.stack + bot.chipsInPot) * 0.3))
     );
     return { type: 'bet', amount: bet };
   }
 
-  if (roll < 0.22) return { type: 'fold' };
-  if (roll < 0.8 || opp.stack <= toCall) {
+  if (roll < 0.25) return { type: 'fold' };
+  if (roll < 0.85 || bot.stack <= toCall) {
     return { type: 'bet', amount: state.highestBet };
   }
   const raiseTo = Math.min(
-    opp.stack + opp.chipsInPot,
-    state.highestBet + Math.max(BIG_BLIND, Math.round(state.pot * 0.6))
+    bot.stack + bot.chipsInPot,
+    state.highestBet + Math.max(BIG_BLIND, Math.round(state.pot * 0.5))
   );
   return { type: 'bet', amount: Math.max(raiseTo, state.highestBet + 1) };
 }
 
-/** Full-screen playable dummy table — you vs auto-opponent, no wallet. */
+/** Full-screen playable dummy table — you vs 4 auto-opponents, no wallet. */
 export default function DummyTablePage() {
   const [hand, setHand] = useState<HandState>(() => newHand());
   const handRef = useRef(hand);
   handRef.current = hand;
 
   const view = useMemo(() => toView(hand), [hand]);
-  const stacksByPlayerId = useMemo(
-    () => ({
-      [ME]: seatOf(hand, ME).stack,
-      [OPP]: seatOf(hand, OPP).stack,
-    }),
-    [hand]
-  );
+  const stacksByPlayerId = useMemo(() => {
+    const stacks: Record<string, number> = {};
+    for (const s of hand.seats) stacks[s.id] = s.stack;
+    return stacks;
+  }, [hand]);
 
   const onLocalAction = useCallback((action: LocalTableAction) => {
-    setHand((prev) => applyAction(prev, ME, action));
+    setHand((prev) => applyAction(prev, prev.nextId, action));
   }, []);
 
-  // Opponent auto-play
+  // Bot auto-play
   useEffect(() => {
-    if (hand.handOver || hand.nextId !== OPP) return;
+    if (hand.handOver || hand.nextId === ME) return;
+    const actorId = hand.nextId;
     const t = window.setTimeout(() => {
       const current = handRef.current;
-      if (current.handOver || current.nextId !== OPP) return;
-      const action = pickOppAction(current);
-      setHand(applyAction(current, OPP, action));
-    }, 700 + Math.random() * 500);
+      if (current.handOver || current.nextId !== actorId) return;
+      const action = pickBotAction(current, actorId);
+      setHand(applyAction(current, actorId, action));
+    }, 550 + Math.random() * 450);
     return () => window.clearTimeout(t);
   }, [hand.handOver, hand.nextId, hand.highestBet, hand.street, hand.pot]);
 
   const dealNext = () => {
-    const you = seatOf(hand, ME).stack;
-    const opp = seatOf(hand, OPP).stack;
-    if (you <= 0 || opp <= 0) {
+    const stacks: Record<string, number> = {};
+    let anyBroke = false;
+    for (const s of hand.seats) {
+      stacks[s.id] = s.stack;
+      if (s.stack <= 0) anyBroke = true;
+    }
+    if (anyBroke) {
       setHand(newHand());
       return;
     }
-    setHand(newHand({ you, opp }));
+    setHand(newHand(stacks));
   };
 
   return (
@@ -426,11 +492,11 @@ export default function DummyTablePage() {
         onLocalAction={onLocalAction}
       />
 
-      <div className='pointer-events-none absolute left-4 top-20 z-30 max-w-[70vw] text-xs text-neutral-500'>
-        <p className='truncate font-medium text-neutral-700'>{view.name}</p>
-        <p className='mt-0.5 font-mono'>
+      <div className='pointer-events-none absolute left-4 top-20 z-30 max-w-[70vw] text-xs text-white/70'>
+        <p className='truncate font-medium text-white'>{view.name}</p>
+        <p className='mt-0.5 font-mono text-white/60'>
           {view.joinCode} · {truncate(view.gameId, 14)} · blinds {SMALL_BLIND}/
-          {BIG_BLIND}
+          {BIG_BLIND} · {PLAYER_COUNT}-max
         </p>
       </div>
 

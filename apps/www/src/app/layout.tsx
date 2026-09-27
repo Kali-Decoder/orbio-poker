@@ -19,9 +19,10 @@ const pokerFont = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Texas Hold'em",
-  description: 'Off-chain multiplayer Texas Hold\'em',
-  icons: [{ rel: 'icon', url: '/favicon.ico' }],
+  title: "Texas Hold'em on Midnight",
+  description:
+    "Off-chain multiplayer Texas Hold'em on Midnight — wallet identity, NIGHT buy-in.",
+  icons: [{ rel: 'icon', url: '/logo-midnight.png' }],
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {

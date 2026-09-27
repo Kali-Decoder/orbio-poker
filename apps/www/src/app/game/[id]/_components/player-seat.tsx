@@ -26,6 +26,15 @@ interface PlayerSeatProps {
   stack: number;
   avatarUrl?: string | null;
   style?: React.CSSProperties;
+  /** Remaining seconds on this seat’s turn clock. */
+  turnSecondsLeft?: number | null;
+}
+
+function formatClock(seconds: number) {
+  const s = Math.max(0, Math.ceil(seconds));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
 }
 
 function avatarColor(name: string) {
@@ -45,8 +54,11 @@ export const PlayerSeat = ({
   stack,
   avatarUrl,
   style,
+  turnSecondsLeft = null,
 }: PlayerSeatProps) => {
   const cards = player.holeCards.length > 0 ? player.holeCards : [];
+  const urgent =
+    turnSecondsLeft != null && turnSecondsLeft <= 15;
 
   return (
     <div
@@ -137,8 +149,18 @@ export const PlayerSeat = ({
       </div>
 
       {isTurn ? (
-        <div className='animate-pulse text-[11px] font-medium text-[#1D9BF0] lg:text-xs'>
-          ••• Thinking
+        <div
+          className={cn(
+            'flex items-center gap-1.5 text-[11px] font-medium tabular-nums lg:text-xs',
+            urgent ? 'animate-pulse text-red-500' : 'text-[#1D9BF0]'
+          )}
+        >
+          <span>
+            {turnSecondsLeft != null
+              ? formatClock(turnSecondsLeft)
+              : '•••'}
+          </span>
+          <span className='font-normal opacity-80'>to act</span>
         </div>
       ) : null}
     </div>

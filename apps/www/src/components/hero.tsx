@@ -236,11 +236,13 @@ export const Hero = () => {
 
       <motion.h1
         style={{ x: titleX, y: titleY }}
-        className='pointer-events-none absolute inset-x-0 top-[18%] z-0 px-4 text-center font-poker text-[clamp(3.5rem,14vw,9.5rem)] font-bold leading-[0.88] tracking-[-0.04em] text-neutral-300/80'
+        className='pointer-events-none absolute inset-x-0 top-[12%] z-0 px-4 text-center font-poker text-[clamp(2.75rem,11vw,7.5rem)] font-bold leading-[0.9] tracking-[-0.04em] text-neutral-300/80'
       >
-        TEXAS
+        TEXAS HOLD&apos;EM
         <br />
-        HOLD&apos;EM
+        <span className='text-[0.55em] tracking-[0.08em] text-neutral-400/90'>
+          ON MIDNIGHT
+        </span>
       </motion.h1>
 
       <div className='relative z-10 flex w-full max-w-3xl flex-col items-center px-4 pt-10'>
