@@ -97,7 +97,7 @@ export const LeaderboardPage = () => {
   const entries = data ?? [];
 
   return (
-    <div className='mx-auto max-w-3xl px-4 pb-20 pt-24'>
+    <div className='mx-auto max-w-6xl px-4 pb-20 pt-24 sm:px-6 lg:px-8'>
       <p className='text-sm font-medium uppercase tracking-[0.18em] text-neutral-400'>
         Standings
       </p>
