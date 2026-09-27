@@ -51,19 +51,20 @@ export const PlayerSeat = ({
   return (
     <div
       className={cn(
-        'absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 transition-opacity',
+        'absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 transition-opacity lg:gap-2',
         player.folded && 'opacity-35'
       )}
       style={style}
     >
       {cards.length > 0 ? (
-        <div className='mb-0.5 flex items-end gap-1'>
+        <div className='mb-0.5 flex items-end gap-1 lg:gap-1.5'>
           {cards.slice(0, 2).map((c, i) => (
             <SleekCard
               key={`${player.id}-c-${i}`}
               cardId={isMe ? c : c < 0 ? -1 : c}
               className={cn(
                 'shadow-[0_6px_16px_rgba(0,0,0,0.08)]',
+                isMe && 'hover:-translate-y-1',
                 i === 0 ? '-rotate-6' : 'rotate-6'
               )}
               size={isMe ? 'lg' : 'sm'}
@@ -77,7 +78,7 @@ export const PlayerSeat = ({
           <ChipAmount
             value={player.chipsInPot}
             size='sm'
-            className='text-[11px] font-semibold text-neutral-700'
+            className='text-[11px] font-semibold text-neutral-700 lg:text-xs'
             iconClassName='h-3.5 w-3.5'
           />
         </div>
@@ -85,13 +86,13 @@ export const PlayerSeat = ({
 
       <div className='relative'>
         {isDealer ? (
-          <div className='absolute -left-3.5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-950 text-[10px] font-bold text-white shadow'>
+          <div className='absolute -left-3.5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-950 text-[10px] font-bold text-white shadow lg:h-6 lg:w-6 lg:text-xs'>
             D
           </div>
         ) : null}
         <div
           className={cn(
-            'flex items-center gap-2 rounded-full border bg-white/95 py-1.5 pl-1.5 pr-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur',
+            'flex items-center gap-2 rounded-full border bg-white/95 py-1.5 pl-1.5 pr-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur lg:py-2 lg:pl-2 lg:pr-4',
             isTurn
               ? 'border-[#1D9BF0] ring-[3px] ring-[#1D9BF0]/15'
               : isMe
@@ -100,7 +101,7 @@ export const PlayerSeat = ({
           )}
         >
           {avatarUrl ? (
-            <div className='h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-100'>
+            <div className='h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-100 lg:h-10 lg:w-10'>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={avatarUrl}
@@ -110,7 +111,7 @@ export const PlayerSeat = ({
             </div>
           ) : (
             <div
-              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white'
+              className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white lg:h-10 lg:w-10'
               style={{ background: avatarColor(player.nickname) }}
             >
               {player.nickname.slice(0, 1).toUpperCase()}
@@ -118,16 +119,16 @@ export const PlayerSeat = ({
           )}
           <div className='min-w-0 leading-tight'>
             <div className='flex items-center gap-1'>
-              <span className='max-w-[7.5rem] truncate text-[13px] font-semibold text-neutral-900'>
+              <span className='max-w-[7.5rem] truncate text-[13px] font-semibold text-neutral-900 lg:max-w-[9rem] lg:text-sm'>
                 {isMe ? `${player.nickname} (you)` : player.nickname}
               </span>
               <BadgeCheck className='h-3.5 w-3.5 shrink-0 fill-[#1D9BF0] text-white' />
             </div>
-            <div className='text-[11px] text-neutral-500'>
+            <div className='text-[11px] text-neutral-500 lg:text-xs'>
               <ChipAmount
                 value={Math.max(stack - player.chipsInPot, 0)}
                 size='sm'
-                className='text-[11px] font-normal text-neutral-500'
+                className='text-[11px] font-normal text-neutral-500 lg:text-xs'
                 iconClassName='h-3.5 w-3.5'
               />
             </div>
@@ -136,7 +137,7 @@ export const PlayerSeat = ({
       </div>
 
       {isTurn ? (
-        <div className='animate-pulse text-[11px] font-medium text-[#1D9BF0]'>
+        <div className='animate-pulse text-[11px] font-medium text-[#1D9BF0] lg:text-xs'>
           ••• Thinking
         </div>
       ) : null}

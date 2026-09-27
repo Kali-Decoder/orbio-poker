@@ -55,28 +55,29 @@ export const SleekTable = ({
   return (
     <div
       className={cn(
-        'flex w-full flex-col bg-[#F7F7F8]',
+        'flex w-full flex-col overflow-hidden bg-[#F7F7F8]',
         compact ? 'h-full min-h-[28rem] pt-2' : 'h-[100dvh] pt-16'
       )}
     >
-      <div className='relative mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-2 sm:px-4'>
+      <div className='relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 items-center justify-center px-2 sm:px-4 lg:max-w-7xl xl:max-w-[84rem]'>
         <div
           className={cn(
             'relative aspect-[1.75/1] w-full',
             compact
               ? 'max-h-[min(42vh,360px)]'
-              : 'max-h-[min(64vh,580px)]'
+              : 'max-h-[min(calc(100dvh-13.5rem),560px)] lg:max-h-[min(calc(100dvh-13.5rem),640px)] xl:max-h-[min(calc(100dvh-13.5rem),700px)]'
           )}
-        >          <div className='absolute inset-[7%] rounded-[999px] border-[3px] border-neutral-950 bg-[#C8E6C9] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]' />
+        >
+          <div className='absolute inset-[7%] rounded-[999px] border-[3px] border-neutral-950 bg-[#C8E6C9] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] lg:border-[4px]' />
           <div className='absolute inset-[11%] rounded-[999px] border border-black/10' />
 
-          <div className='absolute left-1/2 top-1/2 z-10 flex w-full -translate-x-1/2 -translate-y-[55%] flex-col items-center gap-3'>
-            <div className='flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-neutral-500 shadow-sm backdrop-blur'>
+          <div className='absolute left-1/2 top-1/2 z-10 flex w-full -translate-x-1/2 -translate-y-[55%] flex-col items-center gap-3 lg:gap-3.5'>
+            <div className='flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-[13px] font-medium text-neutral-500 shadow-sm backdrop-blur lg:px-5 lg:py-2 lg:text-sm'>
               Pot
               <ChipAmount
                 value={view.pot}
                 size='sm'
-                className='text-[13px] text-neutral-900'
+                className='text-[13px] text-neutral-900 lg:text-sm'
                 iconClassName='h-4 w-4'
               />
               <span className='mx-1 text-neutral-300'>·</span>
@@ -85,9 +86,9 @@ export const SleekTable = ({
               </span>
             </div>
 
-            <div className='flex min-h-[4.75rem] items-center gap-2'>
+            <div className='flex min-h-[4.75rem] items-center gap-2 lg:min-h-[5.5rem] lg:gap-2.5 xl:min-h-[6rem]'>
               {board.length === 0 ? (
-                <div className='rounded-2xl border border-dashed border-neutral-300/80 px-5 py-4 text-xs text-neutral-400'>
+                <div className='rounded-2xl border border-dashed border-neutral-300/80 px-5 py-4 text-xs text-neutral-400 lg:px-6 lg:text-sm'>
                   Waiting for flop
                 </div>
               ) : (
@@ -96,6 +97,7 @@ export const SleekTable = ({
                     <SleekCard
                       key={`board-${i}-${cardId}`}
                       cardId={cardId}
+                      className='hover:-translate-y-0.5'
                       size='md'
                     />
                   ))}
@@ -140,19 +142,21 @@ export const SleekTable = ({
       view.status === 'playing' &&
       view.round !== 'End' &&
       !view.gameEnded ? (
-        <ActionBar
-          gameId={gameId}
-          highestBet={view.highestBet}
-          minRaiseIncrement={view.minRaise ?? 1}
-          isMyTurn={view.isMyTurn}
-          myChipsInPot={
-            view.players.find((p) => p.id === view.myPlayerId)?.chipsInPot ?? 0
-          }
-          stack={myStack}
-          onLocalAction={onLocalAction}
-        />
+        <div className='shrink-0'>
+          <ActionBar
+            gameId={gameId}
+            highestBet={view.highestBet}
+            minRaiseIncrement={view.minRaise ?? 1}
+            isMyTurn={view.isMyTurn}
+            myChipsInPot={
+              view.players.find((p) => p.id === view.myPlayerId)?.chipsInPot ?? 0
+            }
+            stack={myStack}
+            onLocalAction={onLocalAction}
+          />
+        </div>
       ) : (
-        <div className={compact ? 'h-6' : 'h-28'} />
+        <div className={cn('shrink-0', compact ? 'h-6' : 'h-24')} />
       )}
     </div>
   );
