@@ -20,6 +20,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@nli/poker-engine':
+        specifier: workspace:*
+        version: link:../../packages/poker-engine
       cookie:
         specifier: ^0.7.2
         version: 0.7.2

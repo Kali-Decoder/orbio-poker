@@ -21,6 +21,8 @@ interface ActionBarProps {
   highestBet: number;
   myChipsInPot: number;
   stack: number;
+  /** Min raise size (increment), from NLHE engine. */
+  minRaiseIncrement?: number;
   disabled?: boolean;
   /** Offline / dummy table — skip socket and call this instead. */
   onLocalAction?: (action: LocalTableAction) => void;
@@ -32,30 +34,33 @@ export const ActionBar = ({
   highestBet,
   myChipsInPot,
   stack,
+  minRaiseIncrement = 1,
   disabled,
   onLocalAction,
 }: ActionBarProps) => {
   const { socket } = useSocket();
   const canCheck = highestBet <= myChipsInPot;
-  const callAmount = Math.max(highestBet, 0);
-  const minRaise = Math.max(highestBet + 1, 1);
-  const sliderMin = canCheck ? 1 : minRaise;
-  const sliderMax = Math.max(stack + myChipsInPot, callAmount, minRaise, 100);
+  const toCall = Math.max(0, highestBet - myChipsInPot);
+  /** Absolute street target for call (engine expects this or toCall). */
+  const callTarget = highestBet;
+  const minRaiseTo = Math.max(highestBet + minRaiseIncrement, highestBet + 1);
+  const sliderMin = canCheck ? Math.max(minRaiseIncrement, 1) : minRaiseTo;
+  const sliderMax = Math.max(stack + myChipsInPot, callTarget, minRaiseTo, 100);
   const [amount, setAmount] = useState(
-    canCheck ? Math.max(Math.round(stack * 0.75), 1) : minRaise
+    canCheck ? Math.max(Math.round(stack * 0.75), sliderMin) : minRaiseTo
   );
   const [preset, setPreset] = useState<number | null>(canCheck ? 75 : null);
   const lastSliderSoundAt = useRef(0);
 
   useEffect(() => {
     if (canCheck) {
-      setAmount(Math.max(Math.round(stack * 0.75), 1));
+      setAmount(Math.max(Math.round(stack * 0.75), sliderMin));
       setPreset(75);
     } else {
-      setAmount(minRaise);
+      setAmount(minRaiseTo);
       setPreset(null);
     }
-  }, [canCheck, highestBet, minRaise, stack]);
+  }, [canCheck, highestBet, minRaiseTo, sliderMin, stack]);
 
   const applyPreset = (pct: number) => {
     playSound('gems', 0.45);
@@ -107,8 +112,8 @@ export const ActionBar = ({
     emit('game:bet', { gameId, amount: 0 });
   };
   const onCall = () => {
-    playSound(callAmount >= stack ? 'bomb' : 'bet');
-    emit('game:bet', { gameId, amount: callAmount });
+    playSound(toCall >= stack ? 'bomb' : 'bet');
+    emit('game:bet', { gameId, amount: callTarget });
   };
   const onBetOrRaise = () => {
     if (amount < sliderMin) {
@@ -119,7 +124,7 @@ export const ActionBar = ({
       );
       return;
     }
-    playSound(amount >= stack ? 'bomb' : 'bet');
+    playSound(amount >= stack + myChipsInPot ? 'bomb' : 'bet');
     emit('game:bet', { gameId, amount });
   };
 
@@ -220,7 +225,7 @@ export const ActionBar = ({
             >
               <span>Call</span>
               <ChipAmount
-                value={callAmount}
+                value={toCall}
                 size='sm'
                 className='text-[13px]'
                 iconClassName='h-3.5 w-3.5'

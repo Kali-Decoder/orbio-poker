@@ -2,7 +2,6 @@ import type { Server as HttpServer } from 'node:http';
 
 import { parse as parseCookie } from 'cookie';
 import { Server } from 'socket.io';
-import { toPublicView } from 'game-engine';
 
 import { SESSION_COOKIE, getSession } from './auth.js';
 import {
@@ -13,12 +12,14 @@ import {
   actionShuffle,
   actionStart,
   getGame,
+  getPublicState,
 } from './game-store.js';
+import type { NlhePublicView } from './poker-bridge.js';
 
 type ServerToClient = {
-  'game:state': (view: ReturnType<typeof toPublicView>) => void;
+  'game:state': (view: NlhePublicView) => void;
   'game:error': (payload: { error: string }) => void;
-  'game:ended': (view: ReturnType<typeof toPublicView>) => void;
+  'game:ended': (view: NlhePublicView) => void;
 };
 
 type ClientToServer = {
@@ -43,7 +44,8 @@ async function broadcastGame(io: Server, gameId: string) {
     const socket = io.sockets.sockets.get(socketId);
     if (!socket) continue;
     const viewerId = (socket.data.sessionId as string | undefined) ?? null;
-    const view = toPublicView(state, viewerId);
+    const view = await getPublicState(gameId, viewerId);
+    if (!view) continue;
     socket.emit('game:state', view);
     if (view.gameEnded) {
       socket.emit('game:ended', view);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 
 import type { PublicGameView } from '~/lib/api';
 
@@ -13,26 +13,16 @@ interface GameOverlayProps {
 }
 
 export const GameOverlay = ({ gameId, view }: GameOverlayProps) => {
-  const stage = useMemo(() => {
-    if (!view.gameStarted || view.status === 'waiting') {
-      return 'waiting' as const;
-    }
-    if (view.status === 'shuffling' || view.totalShuffles !== view.totalPlayers) {
-      return 'shuffle' as const;
-    }
-    if (view.round !== 'End' && !view.gameEnded) {
-      return 'started' as const;
-    }
-    if (!view.winnerId) {
-      return 'choose-cards' as const;
-    }
-    return 'ended' as const;
-  }, [view]);
-
-  if (stage === 'waiting') {
+  if (view.status === 'waiting' || !view.gameStarted) {
     return <WaitingOverlay gameId={gameId} view={view} />;
   }
-  if (stage === 'shuffle') {
+  if (view.gameEnded || view.status === 'ended') {
+    return <WaitingOverlay gameId={gameId} view={view} nextHand />;
+  }
+  if (
+    view.status === 'shuffling' &&
+    view.totalShuffles !== view.totalPlayers
+  ) {
     return <ShuffleOverlay gameId={gameId} view={view} />;
   }
   return null;

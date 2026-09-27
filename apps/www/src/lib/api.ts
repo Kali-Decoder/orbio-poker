@@ -51,6 +51,10 @@ export type PublicGameView = {
   communityCards: number[];
   pot: number;
   highestBet: number;
+  /** Min raise increment (NLHE). */
+  minRaise?: number;
+  dealerSeat?: number;
+  stacksByPlayerId?: Record<string, number>;
   nextSeat: number;
   nextPlayerId: string | null;
   nextPlayerNickname: string | null;

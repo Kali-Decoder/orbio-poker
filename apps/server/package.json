@@ -10,6 +10,7 @@
     "smoke": "tsx ../../scripts/smoke-poker.ts"
   },
   "dependencies": {
+    "@nli/poker-engine": "workspace:*",
     "cookie": "^0.7.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

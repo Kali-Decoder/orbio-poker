@@ -36,9 +36,11 @@ export const SleekTable = ({
   onLocalAction,
 }: SleekTableProps) => {
   const { user } = useSession();
+  const seatStacks = stacksByPlayerId ?? view.stacksByPlayerId;
   const defaultStack = stackOverride ?? user?.chips ?? 10000;
   const myStack =
-    (view.myPlayerId && stacksByPlayerId?.[view.myPlayerId]) ?? defaultStack;
+    (view.myPlayerId && seatStacks?.[view.myPlayerId]) ?? defaultStack;
+  const dealerSeat = view.dealerSeat ?? 0;
 
   const ordered = useMemo(() => {
     const players = [...view.players].sort((a, b) => a.seat - b.seat);
@@ -86,7 +88,7 @@ export const SleekTable = ({
             <div className='flex min-h-[4.75rem] items-center gap-2'>
               {board.length === 0 ? (
                 <div className='rounded-2xl border border-dashed border-neutral-300/80 px-5 py-4 text-xs text-neutral-400'>
-                  Board deals after ante
+                  Waiting for flop
                 </div>
               ) : (
                 <>
@@ -119,13 +121,13 @@ export const SleekTable = ({
             return (
               <PlayerSeat
                 key={player.id}
-                isDealer={player.seat === 0}
+                isDealer={player.seat === dealerSeat}
                 isMe={isMe}
                 isTurn={
                   player.id === view.nextPlayerId && view.status === 'playing'
                 }
                 player={player}
-                stack={stacksByPlayerId?.[player.id] ?? defaultStack}
+                stack={seatStacks?.[player.id] ?? defaultStack}
                 avatarUrl={isMe ? user?.avatar : null}
                 style={{ left: pos.left, top: pos.top }}
               />
@@ -141,6 +143,7 @@ export const SleekTable = ({
         <ActionBar
           gameId={gameId}
           highestBet={view.highestBet}
+          minRaiseIncrement={view.minRaise ?? 1}
           isMyTurn={view.isMyTurn}
           myChipsInPot={
             view.players.find((p) => p.id === view.myPlayerId)?.chipsInPot ?? 0

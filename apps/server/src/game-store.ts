@@ -1,19 +1,15 @@
 import {
-  chooseCards,
-  createGame,
-  createLobby,
-  declareWinner,
-  fold,
-  joinGame,
+  createEmptyNlheLobby,
+  joinNlheLobby,
   listLobbySummary,
   makeJoinCode,
-  placeBet,
-  playerShuffle,
-  startGame,
-  toPublicView,
-  type GameState,
-  type PublicGameView,
-} from 'game-engine';
+  stacksFromNlhe,
+  startNlheHand,
+  toNlhePublicView,
+  applyNlheBet,
+  applyNlheFold,
+  type StoredGame,
+} from './poker-bridge.js';
 
 import {
   GameEventModel,
@@ -23,10 +19,11 @@ import {
 } from './db.js';
 
 /** Short-lived cache; MongoDB is the source of truth. */
-const memory = new Map<string, GameState>();
+const memory = new Map<string, StoredGame>();
 
 async function sessionMeta(sessionId: string | null | undefined) {
-  if (!sessionId) return { walletAddress: null as string | null, chips: null as number | null };
+  if (!sessionId)
+    return { walletAddress: null as string | null, chips: null as number | null };
   const doc = await SessionModel.findOne({ sessionId })
     .select('walletAddress chips')
     .lean();
@@ -34,6 +31,34 @@ async function sessionMeta(sessionId: string | null | undefined) {
     walletAddress: doc?.walletAddress ?? null,
     chips: doc?.chips ?? null,
   };
+}
+
+async function loadStacksForPlayers(
+  playerIds: string[]
+): Promise<Record<string, number>> {
+  const docs = await SessionModel.find({ sessionId: { $in: playerIds } })
+    .select('sessionId chips')
+    .lean();
+  const map: Record<string, number> = {};
+  for (const id of playerIds) map[id] = 0;
+  for (const d of docs) {
+    map[d.sessionId] = Math.max(0, Math.floor(d.chips ?? 0));
+  }
+  return map;
+}
+
+async function settleStacksToSessions(state: StoredGame) {
+  if (!state.nlhe || state.nlhe.street !== 'complete' || state.nlheSettled) {
+    return state;
+  }
+  const stacks = stacksFromNlhe(state);
+  if (!stacks) return state;
+  await Promise.all(
+    Object.entries(stacks).map(async ([sessionId, chips]) => {
+      await SessionModel.updateOne({ sessionId }, { $set: { chips } });
+    })
+  );
+  return { ...state, nlheSettled: true };
 }
 
 async function recordGameActivity(input: {
@@ -58,17 +83,19 @@ async function recordGameActivity(input: {
   });
 }
 
-function normalizeState(state: GameState): GameState {
+function normalizeState(state: StoredGame): StoredGame {
   return {
     ...state,
     name: state.name?.trim() || 'Table',
     joinCode: (state.joinCode || makeJoinCode()).toUpperCase(),
     minChips: Math.max(0, Math.floor(state.minChips ?? 0)),
-    maxPlayers: Math.min(10, Math.max(2, Math.floor(state.maxPlayers ?? 6))),
+    maxPlayers: Math.min(6, Math.max(2, Math.floor(state.maxPlayers ?? 6))),
+    nlhe: state.nlhe ?? null,
+    nlheSettled: state.nlheSettled ?? false,
   };
 }
 
-function lobbyFields(state: GameState) {
+function lobbyFields(state: StoredGame) {
   const normalized = normalizeState(state);
   return {
     gameId: normalized.gameId,
@@ -88,7 +115,7 @@ function lobbyFields(state: GameState) {
 }
 
 async function persistEvent(
-  state: GameState,
+  state: StoredGame,
   type: string,
   actorId: string | null = null,
   payload: Record<string, unknown> = {}
@@ -104,10 +131,20 @@ async function persistEvent(
 }
 
 async function save(
-  state: GameState,
-  event?: { type: string; actorId?: string | null; payload?: Record<string, unknown> }
+  state: StoredGame,
+  event?: {
+    type: string;
+    actorId?: string | null;
+    payload?: Record<string, unknown>;
+  }
 ) {
-  const normalized = normalizeState(state);
+  let normalized = normalizeState(state);
+  if (
+    normalized.nlhe?.street === 'complete' &&
+    !normalized.nlheSettled
+  ) {
+    normalized = await settleStacksToSessions(normalized);
+  }
   memory.set(normalized.gameId, normalized);
   await GameModel.findOneAndUpdate(
     { gameId: normalized.gameId },
@@ -125,7 +162,7 @@ async function save(
   return normalized;
 }
 
-async function load(gameIdOrCode: string): Promise<GameState | null> {
+async function load(gameIdOrCode: string): Promise<StoredGame | null> {
   const key = gameIdOrCode.trim();
   if (!key) return null;
 
@@ -139,8 +176,7 @@ async function load(gameIdOrCode: string): Promise<GameState | null> {
     memory.delete(key);
     return null;
   }
-  const state = normalizeState(doc.state);
-  // Backfill denormalized fields for older lobbies
+  const state = normalizeState(doc.state as StoredGame);
   if (!doc.joinCode || !doc.name) {
     await GameModel.updateOne(
       { gameId: state.gameId },
@@ -160,7 +196,7 @@ export async function hydrateGamesFromDb() {
   const docs = await GameModel.find({}).lean();
   memory.clear();
   for (const doc of docs) {
-    memory.set(doc.gameId, doc.state);
+    memory.set(doc.gameId, normalizeState(doc.state as StoredGame));
   }
   console.log(`Hydrated ${docs.length} games from MongoDB`);
 }
@@ -185,11 +221,12 @@ export async function createNewGame(player: {
   id: string;
   nickname: string;
 }) {
-  const state = createGame(player);
+  const empty = createEmptyNlheLobby({});
+  const state = joinNlheLobby(empty, player);
   await save(state, {
     type: 'lobby:create',
     actorId: player.id,
-    payload: { nickname: player.nickname },
+    payload: { nickname: player.nickname, engine: 'nlhe' },
   });
   await recordGameActivity({
     sessionId: player.id,
@@ -216,11 +253,10 @@ export async function createEmptyLobby(opts: {
     throw new Error('Invalid min chips.');
   }
   const maxPlayers = Math.min(
-    10,
+    6,
     Math.max(2, Math.floor(opts.maxPlayers ?? 6))
   );
 
-  // Ensure unique join code
   let joinCode = makeJoinCode();
   for (let i = 0; i < 8; i++) {
     const exists = await GameModel.exists({ joinCode });
@@ -228,11 +264,11 @@ export async function createEmptyLobby(opts: {
     joinCode = makeJoinCode();
   }
 
-  const state = createLobby({ name, minChips, maxPlayers, joinCode });
+  const state = createEmptyNlheLobby({ name, minChips, maxPlayers, joinCode });
   await save(state, {
     type: 'lobby:create',
     actorId: null,
-    payload: { source: 'admin', name, minChips, maxPlayers, joinCode },
+    payload: { source: 'admin', name, minChips, maxPlayers, joinCode, engine: 'nlhe' },
   });
   return state;
 }
@@ -254,7 +290,7 @@ export async function joinExistingGame(
     }
   }
 
-  const next = joinGame(state, player);
+  const next = joinNlheLobby(state, player);
   await save(next, {
     type: 'lobby:join',
     actorId: player.id,
@@ -298,7 +334,7 @@ export async function listGames(filter: ListGamesFilter = {}) {
     .lean();
 
   return docs.map((d) => {
-    const summary = listLobbySummary(normalizeState(d.state));
+    const summary = listLobbySummary(normalizeState(d.state as StoredGame));
     return {
       ...summary,
       name: d.name ?? summary.name,
@@ -327,18 +363,22 @@ export async function getGameEvents(gameId: string, limit = 50) {
 export async function getPublicState(
   gameId: string,
   viewerId: string | null
-): Promise<PublicGameView | null> {
+) {
   const state = await load(gameId);
   if (!state) return null;
-  return toPublicView(state, viewerId);
+  return toNlhePublicView(state, viewerId);
 }
 
-type Mutator = (state: GameState) => GameState;
+type Mutator = (state: StoredGame) => StoredGame;
 
 async function mutate(
   gameId: string,
   fn: Mutator,
-  event: { type: string; actorId?: string | null; payload?: Record<string, unknown> }
+  event: {
+    type: string;
+    actorId?: string | null;
+    payload?: Record<string, unknown>;
+  }
 ) {
   const state = await load(gameId);
   if (!state) throw new Error('GameNotFound');
@@ -347,27 +387,44 @@ async function mutate(
   return next;
 }
 
+/** Deal a real NLHE hand (skips legacy shuffle ritual). */
 export async function actionStart(gameId: string, actorId?: string) {
-  const next = await mutate(gameId, startGame, {
+  const state = await load(gameId);
+  if (!state) throw new Error('GameNotFound');
+
+  const stacks = await loadStacksForPlayers(state.players.map((p) => p.id));
+  // Prefer stacks already on the table after a prior hand
+  if (state.nlhe?.street === 'complete') {
+    for (const p of state.nlhe.players) {
+      stacks[p.id] = p.stack;
+    }
+  }
+
+  const next = startNlheHand(state, stacks);
+  await save(next, {
     type: 'game:start',
     actorId,
+    payload: { engine: 'nlhe', blinds: next.nlhe?.config },
   });
   if (actorId) {
     await recordGameActivity({
       sessionId: actorId,
       type: 'game:start',
-      summary: `Started hand in ${gameId.slice(0, 8)}`,
+      summary: `Started NLHE hand in ${gameId.slice(0, 8)}`,
       gameId,
     });
   }
   return next;
 }
 
+/** Legacy shuffle — no-op; hand already starts via game:start. */
 export async function actionShuffle(gameId: string, playerId: string) {
-  return mutate(gameId, (s) => playerShuffle(s, playerId), {
-    type: 'game:shuffle',
-    actorId: playerId,
-  });
+  const state = await load(gameId);
+  if (!state) throw new Error('GameNotFound');
+  if (state.status === 'waiting' && state.players.length >= 2) {
+    return actionStart(gameId, playerId);
+  }
+  return state;
 }
 
 export async function actionBet(
@@ -375,24 +432,28 @@ export async function actionBet(
   playerId: string,
   amount: number
 ) {
-  const next = await mutate(gameId, (s) => placeBet(s, playerId, amount), {
-    type: 'game:bet',
-    actorId: playerId,
-    payload: { amount },
-  });
+  const next = await mutate(
+    gameId,
+    (s) => applyNlheBet(s, playerId, amount),
+    {
+      type: 'game:bet',
+      actorId: playerId,
+      payload: { amount },
+    }
+  );
   await recordGameActivity({
     sessionId: playerId,
     type: 'game:bet',
-    summary: `Bet ${amount} chips in ${gameId.slice(0, 8)}`,
+    summary: `Bet action (${amount}) in ${gameId.slice(0, 8)}`,
     gameId,
-    amountChips: -Math.abs(amount),
+    amountChips: null,
     payload: { amount },
   });
   return next;
 }
 
 export async function actionFold(gameId: string, playerId: string) {
-  const next = await mutate(gameId, (s) => fold(s, playerId), {
+  const next = await mutate(gameId, (s) => applyNlheFold(s, playerId), {
     type: 'game:fold',
     actorId: playerId,
   });
@@ -405,46 +466,45 @@ export async function actionFold(gameId: string, playerId: string) {
   return next;
 }
 
+/** Legacy choose-cards — NLHE auto-ranks; no-op. */
 export async function actionChooseCards(
   gameId: string,
   playerId: string,
-  cards: [number, number, number]
+  _cards: [number, number, number]
 ) {
-  return mutate(gameId, (s) => chooseCards(s, playerId, cards), {
-    type: 'game:chooseCards',
-    actorId: playerId,
-    payload: { cards },
-  });
+  const state = await load(gameId);
+  if (!state) throw new Error('GameNotFound');
+  return state;
 }
 
+/** Legacy declare — if hand already complete via engine, just return it. */
 export async function actionDeclareWinner(gameId: string, actorId?: string) {
-  const next = await mutate(gameId, declareWinner, {
-    type: 'game:declareWinner',
-    actorId,
-  });
-
-  const winnerId = next.winnerId;
-  const pot = next.pot ?? 0;
-
-  await Promise.all(
-    next.players.map(async (p) => {
-      const won = winnerId != null && p.id === winnerId;
-      await recordGameActivity({
-        sessionId: p.id,
-        type: won ? 'game:win' : 'game:end',
-        summary: won
-          ? `Won pot ${pot} in ${gameId.slice(0, 8)}`
-          : `Hand ended in ${gameId.slice(0, 8)}`,
-        gameId,
-        amountChips: won ? pot : null,
-        payload: {
-          winnerId,
-          pot,
-          nickname: p.nickname,
-        },
-      });
-    })
-  );
-
-  return next;
+  const state = await load(gameId);
+  if (!state) throw new Error('GameNotFound');
+  if (state.nlhe?.street === 'complete') {
+    const settled = await save(state, {
+      type: 'game:declareWinner',
+      actorId,
+      payload: { engine: 'nlhe' },
+    });
+    const winnerId = settled.winnerId;
+    const pot = settled.pot ?? 0;
+    await Promise.all(
+      settled.players.map(async (p) => {
+        const won = winnerId != null && p.id === winnerId;
+        await recordGameActivity({
+          sessionId: p.id,
+          type: won ? 'game:win' : 'game:end',
+          summary: won
+            ? `Won pot ${pot} in ${gameId.slice(0, 8)}`
+            : `Hand ended in ${gameId.slice(0, 8)}`,
+          gameId,
+          amountChips: won ? pot : null,
+          payload: { winnerId, pot, nickname: p.nickname, engine: 'nlhe' },
+        });
+      })
+    );
+    return settled;
+  }
+  throw new Error('HandNotComplete');
 }
